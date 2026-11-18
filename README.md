@@ -59,7 +59,7 @@ pnpm --version   # 10.x or later
 
    To configure manually instead, copy `.env.example` to `.env.local` and fill in the values yourself.
 
-Shortcut: `pnpm bootstrap` runs steps 2 and 3 in one go. It first checks that Node.js, pnpm and Docker are installed and that Docker is running. It is safe to re-run.
+Shortcut: `pnpm bootstrap` runs steps 2 and 3 in one go. It checks Node.js and pnpm, installs dependencies, then checks that Docker is running before starting Supabase and writing `.env.local`. It is safe to re-run.
 
 ### Running the app
 
@@ -94,11 +94,11 @@ pnpm test:run    # Run tests once
 
 ### Working in T3 Code
 
-[`t3.json`](t3.json) declares this repository's actions for [T3 Code](https://t3.codes). Import them once per machine: open **Settings → Projects**, pick this project, and use **Import scripts** under Actions. You can also import them from a thread's actions menu, under **From t3.json**. Importing copies them into your T3 Code settings, so import again after `t3.json` changes.
+[`t3.json`](t3.json) declares this repository's actions for [T3 Code](https://t3.codes). Import them once per machine: open **Settings → Projects**, pick this project, and use **Import scripts** under Actions. You can also import them from a thread's actions menu, under **From t3.json**. Importing copies them into your T3 Code settings and skips any action whose name or command you already have, so when an action in `t3.json` changes, edit it there or delete it and import it again.
 
 | Action | Command | What it does |
 | --- | --- | --- |
-| Setup | `pnpm bootstrap --skip-supabase-without-docker` | Runs when T3 Code creates a worktree. The agent waits until it finishes, so it starts with dependencies installed, Supabase running and `.env.local` written. If Docker is not running, Setup still installs dependencies and lets the agent start, but skips Supabase; start Docker and run `pnpm setup:env`. |
+| Setup | `pnpm run --if-present bootstrap --continue-without-supabase` | Runs when T3 Code creates a worktree. The agent waits until it finishes, so it starts with dependencies installed, Supabase running and `.env.local` written. If Docker is not running or Supabase fails to start, Setup still installs dependencies and lets the agent start; fix the problem and run `pnpm setup:env`. On branches older than `bootstrap`, Setup does nothing. |
 | Dev | `pnpm dev` | Starts Supabase and Next.js. Open the app from the thread details card, which lists the ports this thread's terminals started. Stops when the thread settles. |
 | Check | `pnpm check` | Lint, typecheck and unit tests, the same steps as CI's first job. |
 | Test | `pnpm test` | Vitest in watch mode. Stops when the thread settles. |
@@ -232,7 +232,7 @@ pnpm --version   # 10.x o superior
 
    Para configurar manualmente, copia `.env.example` a `.env.local` y completa los valores tú mismo.
 
-Atajo: `pnpm bootstrap` ejecuta los pasos 2 y 3 de una vez. Antes comprueba que Node.js, pnpm y Docker estén instalados y que Docker esté en ejecución. Puedes volver a ejecutarlo sin problema.
+Atajo: `pnpm bootstrap` ejecuta los pasos 2 y 3 de una vez. Comprueba Node.js y pnpm, instala las dependencias y luego comprueba que Docker esté en ejecución antes de iniciar Supabase y escribir `.env.local`. Puedes volver a ejecutarlo sin problema.
 
 ### Ejecutar la aplicación
 
@@ -267,11 +267,11 @@ pnpm test:run    # Ejecutar pruebas una vez
 
 ### Trabajar en T3 Code
 
-[`t3.json`](t3.json) declara las acciones de este repositorio para [T3 Code](https://t3.codes). Impórtalas una vez por máquina: abre **Settings → Projects**, elige este proyecto y usa **Import scripts** en la sección Actions. También puedes importarlas desde el menú de acciones de un hilo, en **From t3.json**. Importar las copia a tu configuración de T3 Code, así que vuelve a importarlas cuando cambie `t3.json`.
+[`t3.json`](t3.json) declara las acciones de este repositorio para [T3 Code](https://t3.codes). Impórtalas una vez por máquina: abre **Settings → Projects**, elige este proyecto y usa **Import scripts** en la sección Actions. También puedes importarlas desde el menú de acciones de un hilo, en **From t3.json**. Importar las copia a tu configuración de T3 Code y omite cualquier acción cuyo nombre o comando ya tengas, así que cuando cambie una acción en `t3.json`, edítala allí o bórrala e impórtala de nuevo.
 
 | Acción | Comando | Qué hace |
 | --- | --- | --- |
-| Setup | `pnpm bootstrap --skip-supabase-without-docker` | Se ejecuta cuando T3 Code crea un worktree. El agente espera a que termine, así que empieza con las dependencias instaladas, Supabase en ejecución y `.env.local` escrito. Si Docker no está en ejecución, Setup igualmente instala las dependencias y deja que el agente empiece, pero omite Supabase; inicia Docker y ejecuta `pnpm setup:env`. |
+| Setup | `pnpm run --if-present bootstrap --continue-without-supabase` | Se ejecuta cuando T3 Code crea un worktree. El agente espera a que termine, así que empieza con las dependencias instaladas, Supabase en ejecución y `.env.local` escrito. Si Docker no está en ejecución o Supabase no arranca, Setup igualmente instala las dependencias y deja que el agente empiece; corrige el problema y ejecuta `pnpm setup:env`. En ramas anteriores a `bootstrap`, Setup no hace nada. |
 | Dev | `pnpm dev` | Inicia Supabase y Next.js. Abre la app desde la tarjeta de detalles del hilo, que lista los puertos que abrieron las terminales de este hilo. Se detiene cuando el hilo se cierra (settle). |
 | Check | `pnpm check` | Lint, typecheck y pruebas unitarias, los mismos pasos que el primer job de CI. |
 | Test | `pnpm test` | Vitest en modo watch. Se detiene cuando el hilo se cierra (settle). |

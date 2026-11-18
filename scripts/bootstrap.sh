@@ -3,18 +3,19 @@
 # checks Node and pnpm, installs dependencies, then checks Docker, starts local
 # Supabase and writes .env.local. Safe to re-run.
 #
-# --skip-supabase-without-docker: if Docker is not running, warn and exit 0
-# after installing instead of failing. T3 Code's Setup action uses it, because
-# a failing Setup stops the new thread's agent from starting at all.
+# --continue-without-supabase: if Docker is not running or Supabase fails to
+# start, warn and exit 0 after installing instead of failing. T3 Code's Setup
+# action uses it, because a failing Setup stops the new thread's agent from
+# starting at all.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-skip_supabase_without_docker=false
+continue_without_supabase=false
 for arg in "$@"; do
   case "$arg" in
-    --skip-supabase-without-docker) skip_supabase_without_docker=true ;;
+    --continue-without-supabase) continue_without_supabase=true ;;
     *)
       echo "error: unknown option: $arg" >&2
       exit 2
@@ -53,7 +54,7 @@ elif ! docker info >/dev/null 2>&1; then
 fi
 
 if [[ -n "$docker_problem" ]]; then
-  if [[ "$skip_supabase_without_docker" == true ]]; then
+  if [[ "$continue_without_supabase" == true ]]; then
     echo "warning: ${docker_problem} Dependencies are installed; Supabase and .env.local were skipped." >&2
     echo "warning: Start Docker, then run pnpm setup:env." >&2
     exit 0
@@ -62,7 +63,14 @@ if [[ -n "$docker_problem" ]]; then
 fi
 
 # Starts Supabase (a no-op if it is already running) and writes .env.local.
-bash scripts/setup-env.sh
+if ! bash scripts/setup-env.sh; then
+  if [[ "$continue_without_supabase" == true ]]; then
+    echo "warning: Supabase did not start (see above). Dependencies are installed; .env.local may be missing." >&2
+    echo "warning: Fix the problem, then run pnpm setup:env." >&2
+    exit 0
+  fi
+  exit 1
+fi
 
 echo
 echo "Ready. Run pnpm dev and open the URL Next.js prints."

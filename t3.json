@@ -3,7 +3,7 @@
   "scripts": [
     {
       "name": "Setup",
-      "command": "pnpm bootstrap --skip-supabase-without-docker",
+      "command": "pnpm run --if-present bootstrap --continue-without-supabase",
       "icon": "configure",
       "runOnWorktreeCreate": true,
       "async": false
