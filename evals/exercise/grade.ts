@@ -1,4 +1,5 @@
-import { CSV_COLUMNS, type CsvRow } from "./oracle.ts";
+import { CSV_COLUMNS, type CsvColumn, type CsvRow } from "./oracle.ts";
+import type { Page, PageTable } from "./page.ts";
 
 export type Status = "pass" | "fail" | "skip";
 
@@ -12,14 +13,16 @@ export type Result = {
 
 /**
  * The pages to request for a result of `total` rows. Small results are
- * walked in full. Large ones check the first two pages and the last, which
- * also proves the total: the last page only has the right rows when the
- * app counted every match.
+ * walked in full. Large ones check the first two pages and the last. The
+ * page after the last must show no rows. Together these prove the app
+ * counted every match, no more and no fewer.
  */
 export function pagesToCheck(total: number, pageSize: number): number[] {
-  const last = Math.max(1, Math.ceil(total / pageSize));
-  if (last <= 3) return Array.from({ length: last }, (_, i) => i + 1);
-  return [1, 2, last];
+  if (total === 0) return [1];
+  const last = Math.ceil(total / pageSize);
+  const pages =
+    last <= 3 ? Array.from({ length: last }, (_, i) => i + 1) : [1, 2, last];
+  return [...pages, last + 1];
 }
 
 export function expectedOnPage(
@@ -54,6 +57,48 @@ export function compareIds(
     parts.push(`same IDs in a different order (first: ${sample(got)})`);
   }
   return parts.join("; ");
+}
+
+/**
+ * Null when the page shows what a person should see: exactly the expected
+ * rows, or, when none are expected, no rows and a message saying so. A page
+ * with no table and no message (an error page, a stuck loading state) fails.
+ */
+export function judgePage(
+  page: Page,
+  want: number[],
+  noRowsText: RegExp,
+): string | null {
+  const got = page.table?.ids ?? [];
+  if (want.length === 0 && got.length === 0) {
+    return noRowsText.test(page.text)
+      ? null
+      : `shows no rows and no message matching ${noRowsText}`;
+  }
+  if (!page.table) return "shows no table with an ID column";
+  return compareIds(got, want);
+}
+
+/**
+ * Null when every shown row has a cell reading exactly the CSV's value for
+ * each of `columns`. Catches a table that shows the right IDs with wrong or
+ * missing data.
+ */
+export function compareCells(
+  table: Pick<PageTable, "ids" | "cells">,
+  csvById: Map<number, CsvRow>,
+  columns: readonly CsvColumn[],
+): string | null {
+  for (const [i, id] of table.ids.entries()) {
+    const row = csvById.get(id);
+    if (!row) return `ID ${id} is not in the CSV`;
+    for (const column of columns) {
+      if (!table.cells[i].includes(row[column])) {
+        return `ID ${id} has no cell reading "${row[column]}" (${column}); its cells: ${table.cells[i].join(" | ")}`;
+      }
+    }
+  }
+  return null;
 }
 
 /**
@@ -151,18 +196,22 @@ export function baselineHolds(diff: BaselineDiff): boolean {
 
 /**
  * The new baseline: cases that ran take their result, skipped cases keep
- * their old entry, and entries for removed cases are dropped.
+ * their old entry, and entries for removed cases are dropped. A case that
+ * passed before keeps `pass` even if it fails now, unless
+ * `acceptRegressions`: the baseline only moves backwards on purpose.
  */
 export function nextBaseline(
   baseline: Baseline,
   results: Result[],
   caseIds: string[],
+  acceptRegressions = false,
 ): Baseline {
   const next: Baseline = {};
   for (const id of caseIds) {
     const result = results.find((r) => r.id === id);
-    if (result && result.status !== "skip") next[id] = result.status;
-    else next[id] = baseline[id] ?? "fail";
+    if (!result || result.status === "skip") next[id] = baseline[id] ?? "fail";
+    else if (baseline[id] === "pass" && !acceptRegressions) next[id] = "pass";
+    else next[id] = result.status;
   }
   return next;
 }

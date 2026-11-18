@@ -1,7 +1,7 @@
 import { JSDOM, VirtualConsole } from "jsdom";
 
 /**
- * Reads the data table out of a server-rendered page.
+ * Reads a server-rendered page the way a person sees it.
  *
  * React streams slow parts of a page as hidden fragments and moves them into
  * place with small inline scripts. So the page is loaded into jsdom with
@@ -13,17 +13,24 @@ export type PageTable = {
   headers: string[];
   /** The ID of each body row, top to bottom. */
   ids: number[];
+  /** The text of each cell in those rows, in the same order as `ids`. */
+  cells: string[][];
+};
+
+export type Page = {
+  /** The visible table with an ID column, or null when there is none. */
+  table: PageTable | null;
+  /** The text a person can see: no scripts, styles, or hidden elements. */
+  text: string;
 };
 
 const clean = (text: string | null) => (text ?? "").replace(/\s+/g, " ").trim();
 
 /**
- * Finds the visible table whose header has a cell matching `idHeader` and
- * returns its IDs. If several qualify (say, a loading placeholder and the
- * real one), the one with the most ID rows wins. Returns null when no visible
- * table has an ID column.
+ * If several visible tables have an ID column (say, a loading placeholder
+ * and the real one), the one with the most ID rows wins.
  */
-export function readTable(html: string, idHeader: RegExp): PageTable | null {
+export function readPage(html: string, idHeader: RegExp): Page {
   const dom = new JSDOM(html, {
     runScripts: "dangerously",
     pretendToBeVisual: true,
@@ -32,33 +39,46 @@ export function readTable(html: string, idHeader: RegExp): PageTable | null {
   });
   // React 19 queues finished sections in $RB and reveals them on the next
   // animation frame with $RV. Reveal them now instead of waiting. If React
-  // renames these, sections stay hidden and the cases fail, so this cannot
-  // pass a page by mistake.
+  // renames these, the sections stay hidden: no table and no text, so every
+  // case fails.
   const react = dom.window as unknown as { $RB?: unknown[]; $RV?: (queue: unknown[]) => void };
   if (Array.isArray(react.$RB) && react.$RB.length > 0 && typeof react.$RV === "function") {
     react.$RV(react.$RB);
   }
   try {
-    let best: PageTable | null = null;
-    for (const table of dom.window.document.querySelectorAll("table")) {
-      if (table.closest("[hidden]")) continue;
-      const headerRow = table.tHead?.rows[0] ?? table.rows[0];
+    const document = dom.window.document;
+    let table: PageTable | null = null;
+    for (const element of document.querySelectorAll("table")) {
+      if (element.closest("[hidden]")) continue;
+      const headerRow = element.tHead?.rows[0] ?? element.rows[0];
       if (!headerRow) continue;
       const headers = [...headerRow.cells].map((cell) => clean(cell.textContent));
       const idColumn = headers.findIndex((header) => idHeader.test(header));
       if (idColumn === -1) continue;
 
       const ids: number[] = [];
-      for (const body of table.tBodies) {
+      const cells: string[][] = [];
+      for (const body of element.tBodies) {
         for (const row of body.rows) {
-          const cell = clean(row.cells[idColumn]?.textContent ?? "");
+          const texts = [...row.cells].map((cell) => clean(cell.textContent));
+          const id = texts[idColumn] ?? "";
           // IDs may be printed with thousands separators ("1,234").
-          if (/^#?\d[\d,. ]*$/.test(cell)) ids.push(Number(cell.replace(/\D/g, "")));
+          if (/^#?\d[\d,. ]*$/.test(id)) {
+            ids.push(Number(id.replace(/\D/g, "")));
+            cells.push(texts);
+          }
         }
       }
-      if (best === null || ids.length > best.ids.length) best = { headers, ids };
+      if (table === null || ids.length > table.ids.length) {
+        table = { headers, ids, cells };
+      }
     }
-    return best;
+
+    const body = document.body.cloneNode(true) as HTMLElement;
+    for (const element of body.querySelectorAll("script, style, template, noscript, [hidden]")) {
+      element.remove();
+    }
+    return { table, text: clean(body.textContent) };
   } finally {
     dom.window.close();
   }

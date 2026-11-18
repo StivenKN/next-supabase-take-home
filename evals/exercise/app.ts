@@ -24,10 +24,16 @@ export const ROUTE = "/";
 export const ID_HEADER = /^ID\b/;
 
 /**
+ * Visible text that tells a person a page has no rows: either nothing
+ * matches the filters, or the page number is past the last page.
+ */
+export const NO_ROWS_TEXT = /No one matches these filters|There is no page/;
+
+/**
  * The URL for a filter and page. Rows are expected in ID order, ascending,
  * when no sort is given.
  *
- *   ?country=Brazil,South+Korea   any of these values
+ *   ?country=Brazil,South%20Korea any of these values
  *   &age=30..50                   inclusive bounds, either side optional
  *   &page=3                       1-based
  */

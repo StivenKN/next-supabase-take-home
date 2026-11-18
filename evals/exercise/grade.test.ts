@@ -6,15 +6,19 @@ import { urlFor } from "./app.ts";
 import { CASES } from "./cases.ts";
 import {
   compareIds,
+  compareCells,
   compareRows,
   diffBaseline,
+  judgePage,
   nextBaseline,
   pagesToCheck,
   sameValue,
   type Result,
 } from "./grade.ts";
 import { expectedIds, expectedIdsScaled, parseCsv, type CsvRow } from "./oracle.ts";
-import { readTable } from "./page.ts";
+import { readPage } from "./page.ts";
+
+const readTable = (html: string, idHeader: RegExp) => readPage(html, idHeader).table;
 
 const csv = parseCsv(
   readFileSync(
@@ -104,7 +108,14 @@ describe("readTable", () => {
       <tr><td>1<!-- --></td><td>South&nbsp;Korea</td></tr>
       <tr><td>1,234</td><td>Brazil</td></tr>
     </tbody></table>`;
-    expect(readTable(html, /^ID$/)).toEqual({ headers: ["ID", "Country"], ids: [1, 1234] });
+    expect(readTable(html, /^ID$/)).toEqual({
+      headers: ["ID", "Country"],
+      ids: [1, 1234],
+      cells: [
+        ["1", "South Korea"],
+        ["1,234", "Brazil"],
+      ],
+    });
   });
 
   it("reads rows React streamed in after the table shell", () => {
@@ -129,6 +140,47 @@ describe("readTable", () => {
   });
 });
 
+describe("compareCells", () => {
+  const columns = ["Gender", "Country"] as const;
+  const row1 = byId.get(1)!;
+
+  it("passes rows that show their CSV values and names the first that does not", () => {
+    const shown = { ids: [1], cells: [["1", row1.Gender, row1.Country, "7.5"]] };
+    expect(compareCells(shown, byId, columns)).toBeNull();
+    const wrong = { ids: [1], cells: [["1", row1.Gender, "Atlantis"]] };
+    expect(compareCells(wrong, byId, columns)).toMatch(
+      new RegExp(`ID 1 has no cell reading "${row1.Country}" \\(Country\\)`),
+    );
+    expect(compareCells({ ids: [1], cells: [["1"]] }, byId, columns)).toMatch(/Gender/);
+  });
+});
+
+describe("judgePage", () => {
+  const noRows = /No one matches/;
+  const table = (ids: number[]) => ({ headers: ["ID"], ids, cells: ids.map((id) => [String(id)]) });
+
+  it("passes the expected rows and explains anything else", () => {
+    expect(judgePage({ table: table([1, 2]), text: "" }, [1, 2], noRows)).toBeNull();
+    expect(judgePage({ table: table([1, 3]), text: "" }, [1, 2], noRows)).toMatch(/missing IDs 2/);
+    expect(judgePage({ table: null, text: "Oops" }, [1], noRows)).toMatch(/no table/);
+  });
+
+  it("passes an empty result only when the page says so", () => {
+    expect(judgePage({ table: null, text: "No one matches these filters" }, [], noRows)).toBeNull();
+    expect(judgePage({ table: table([]), text: "No one matches" }, [], noRows)).toBeNull();
+    // An error page or a loading state that never finished is not "no rows".
+    expect(judgePage({ table: null, text: "Something went wrong" }, [], noRows)).toMatch(/no message/);
+    expect(judgePage({ table: table([]), text: "Loading" }, [], noRows)).toMatch(/no message/);
+    expect(judgePage({ table: table([5]), text: "No one matches" }, [], noRows)).toMatch(/unexpected IDs 5/);
+  });
+
+  it("reads only visible text", () => {
+    const html = `<main>Results</main><div hidden>No one matches</div>
+      <script>self.data = {"emptyTitle":"No one matches"}</script>`;
+    expect(readPage(html, /^ID$/).text).toBe("Results");
+  });
+});
+
 describe("urlFor", () => {
   it("encodes values and leaves out page 1 and unset bounds", () => {
     expect(
@@ -144,8 +196,11 @@ describe("urlFor", () => {
 describe("pages", () => {
   it("walks small results in full and samples large ones", () => {
     expect(pagesToCheck(0, 50)).toEqual([1]);
-    expect(pagesToCheck(150, 50)).toEqual([1, 2, 3]);
-    expect(pagesToCheck(226, 50)).toEqual([1, 2, 5]);
+    expect(pagesToCheck(28, 50)).toEqual([1, 2]);
+    expect(pagesToCheck(150, 50)).toEqual([1, 2, 3, 4]);
+    expect(pagesToCheck(226, 50)).toEqual([1, 2, 5, 6]);
+    // The page after the last must be empty, which proves an exact multiple.
+    expect(pagesToCheck(10_000, 50)).toEqual([1, 2, 200, 201]);
   });
 
   it("explains a wrong page", () => {
@@ -219,10 +274,17 @@ describe("baseline", () => {
   it("keeps skipped entries and drops removed cases when rewritten", () => {
     expect(
       nextBaseline(
-        { a: "pass", c: "pass", gone: "pass" },
+        { a: "fail", c: "pass", gone: "pass" },
         [result("a", "fail"), result("b", "pass"), result("c", "skip")],
         ids,
       ),
     ).toEqual({ a: "fail", b: "pass", c: "pass", d: "fail" });
+  });
+
+  it("never turns a pass into a fail unless asked", () => {
+    const before = { a: "pass", b: "fail" } as const;
+    const results = [result("a", "fail"), result("b", "pass")];
+    expect(nextBaseline(before, results, ["a", "b"])).toEqual({ a: "pass", b: "pass" });
+    expect(nextBaseline(before, results, ["a", "b"], true)).toEqual({ a: "fail", b: "pass" });
   });
 });

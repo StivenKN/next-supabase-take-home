@@ -2,6 +2,7 @@
   "data/row-count": "fail",
   "data/round-trip": "fail",
   "page/no-filter": "fail",
+  "page/row-values": "fail",
   "page/country": "fail",
   "page/country-with-space": "fail",
   "page/countries": "fail",

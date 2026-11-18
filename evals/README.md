@@ -20,11 +20,11 @@ CI runs every eval against a fresh stack and compares the results with the eval'
 - a case that passes in the baseline fails now (a regression), or
 - a case that fails in the baseline passes now. Lock it in: rerun with `--write-baseline <file>` and commit the file, so it can never quietly fail again.
 
-The baseline only moves toward `pass` on purpose. Changing a `pass` to `fail` in a PR needs a reason in the PR description.
+`--write-baseline` never turns a `pass` into a `fail` by itself. To accept a regression on purpose, add `--accept-regressions` and say why in the PR description.
 
 ## The shape of an eval
 
-Same layout as the evals in T3 Code, so a new one is easy to write and an old one is easy to run.
+Every eval has the same layout, so a new one is easy to write and an old one is easy to run.
 
 - `evals/<eval>/run.ts` is the entry point. Root `package.json` has `evals:<eval>`.
 - `evals/<eval>/README.md` says what it measures, how to run it, and how to add a case.

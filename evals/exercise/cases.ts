@@ -1,4 +1,4 @@
-import type { Filter } from "./oracle.ts";
+import type { CsvColumn, Filter } from "./oracle.ts";
 
 /**
  * Every case comes from a requirement in README.md ("Exercise"). `source`
@@ -7,8 +7,9 @@ import type { Filter } from "./oracle.ts";
  * - `data`: the database holds the CSV.
  * - `page`: the page shows the rows a filter selects, in ID order, and every
  *   matching row is reachable through the pages.
- * - `input`: a hostile or out-of-range URL still gets a page, and the data is
- *   unchanged afterwards.
+ * - `values`: the rows on the first page show the CSV's values.
+ * - `input`: a hostile or out-of-range URL shows the rows it matches (none),
+ *   and the data is unchanged afterwards.
  * - `weight`: the page sends one page of rows, not the dataset.
  * - `scale`: grows the table to a million rows and times the page. It
  *   changes the database, so it only runs with `--scale`.
@@ -17,6 +18,7 @@ export type Case = { id: string; source: string; what: string } & (
   | { kind: "row-count" }
   | { kind: "round-trip" }
   | { kind: "page"; filter: Filter }
+  | { kind: "values"; columns: CsvColumn[] }
   | { kind: "input"; filter: Filter; page: number }
   | { kind: "weight"; maxRows: number; maxBytes: number }
   | {
@@ -53,6 +55,21 @@ export const CASES: Case[] = [
     what: "With no filter the pages walk all 10,000 rows in ID order.",
     kind: "page",
     filter: {},
+  },
+
+  {
+    id: "page/row-values",
+    source: `${PART_2}, "displays the loaded data in a table"`,
+    what: "Each row on the first page shows its gender, country, occupation, sleep quality, stress level, and health issues from the CSV.",
+    kind: "values",
+    columns: [
+      "Gender",
+      "Country",
+      "Occupation",
+      "Sleep_Quality",
+      "Stress_Level",
+      "Health_Issues",
+    ],
   },
 
   {
@@ -143,7 +160,7 @@ export const CASES: Case[] = [
   {
     id: "input/hostile-country",
     source: PART_2,
-    what: "Quotes and PostgREST syntax in a filter value do not break the page or the data.",
+    what: "Quotes and PostgREST syntax in a filter value match nothing and change no data.",
     kind: "input",
     filter: {
       choices: { country: ["Brazil'),or(id.gt.0", "x\"; drop table--"] },
@@ -153,7 +170,7 @@ export const CASES: Case[] = [
   {
     id: "input/page-past-end",
     source: PART_2,
-    what: "A page number far past the last page still gets a page.",
+    what: "A page number far past the last page says it has no rows.",
     kind: "input",
     filter: {},
     page: 999_999,

@@ -5,9 +5,9 @@ Checks the app against the exercise in the [root README](../../README.md). The e
 | Cases      | What passes                                                                                                 |
 | ---------- | ----------------------------------------------------------------------------------------------------------- |
 | `data/*`   | The table holds the 10,000 CSV rows, with the same value in every column.                                  |
-| `page/*`   | For each filter, the page shows exactly the matching rows in ID order, and the last page proves the total. |
-| `input/*`  | A hostile filter value or a page far past the end still gets a page (no 5xx) and changes no data.          |
-| `scale/*`  | The page sends one page of rows, not the dataset. At 1,000,000 rows, pages stay correct and answer in under 2 seconds. |
+| `page/*`   | For each filter, the page shows exactly the matching rows in ID order, and the page after the last says it has no rows, which proves the total. `page/row-values` checks that rows show their CSV values. |
+| `input/*`  | A hostile filter value matches nothing, and a page far past the end says it has no rows. Neither changes data. |
+| `scale/*`  | `page-weight`: the page sends one page of rows, not the dataset. `million-rows` (only with `--scale`): at 1,000,000 rows, pages stay correct and answer in under 2 seconds. |
 
 ## Run
 
@@ -19,19 +19,20 @@ pnpm evals:exercise --out evals/runs/local --scale --baseline evals/exercise/bas
 ```
 
 - `--base-url <url>`: where the app runs. Default `http://localhost:3000`.
-- `--scale`: also runs `scale/million-rows`. It copies the table 99 more times (shifted IDs), checks and times five pages, then deletes the copies. About 30 seconds. It changes your local database while it runs, so it is off by default. CI runs it.
+- `--scale`: also runs `scale/million-rows`. It copies the table 99 more times (shifted IDs), checks and times five pages, then deletes the copies, also on Ctrl-C. About 30 seconds. It changes your local database while it runs, so it is off by default. CI runs it.
 - `--baseline <file>`: exit 1 when results differ from the file. See [CI enforces a baseline](../README.md#ci-enforces-a-baseline).
-- `--write-baseline <file>`: update the file from this run. Skipped cases keep their entry.
+- `--write-baseline <file>`: update the file from this run. Skipped cases keep their entry, and a case that passed before stays `pass` (the run exits 1) unless you add `--accept-regressions`.
 - Database access runs `psql` inside the Supabase container (`supabase_db_<project_id>`), so only Docker is needed. `EVALS_DB_CONTAINER` overrides the name.
-- Without `--scale` a run takes a few seconds.
+- Without `--scale` a run takes a few seconds. Every request times out after 30 seconds.
+- Exit codes: 0 done (and matches the baseline, if given), 1 differs from the baseline, 2 setup problem (no database container, nothing answering at the URL, unreadable baseline).
 
 ## How the page is read
 
-`page.ts` loads the server's HTML into jsdom and runs its inline scripts, so rows that React streams in after the table shell land where a browser puts them. Then it finds the visible table with an `ID` column and reads the IDs. A filter is checked page by page: results of up to three pages are walked in full; larger ones check pages 1, 2, and the last.
+`page.ts` loads the server's HTML into jsdom and runs its inline scripts, so rows that React streams in after the table shell land where a browser puts them. Then it finds the visible table with an `ID` column and reads the IDs. When no rows are expected, the page must also show a message saying so; an error page or a stuck loading state does not count. A filter is checked page by page: results of up to three pages are walked in full; larger ones check pages 1, 2, and the last. Then the page after the last must show no rows.
 
 ## When the app changes
 
-`app.ts` is the only file that knows the app: table name, route, URL format for filters and pages, and the ID column's header. If the app renames one of those, update `app.ts`, not the cases. It builds URLs itself on purpose, instead of importing the app's URL code, so a bug there fails a case instead of being shared.
+`app.ts` is the only file that knows the app: table name, route, URL format for filters and pages, the ID column's header, and the message shown when there are no rows. If the app renames one of those, update `app.ts`, not the cases. It builds URLs itself on purpose, instead of importing the app's URL code, so a bug there fails a case instead of being shared.
 
 ## Add a case
 
