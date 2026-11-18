@@ -92,4 +92,5 @@ pnpm build
 
 - Use a component from `components/ui/` before you write a new component.
 - Write no comment by default. Write a comment only for a constraint that the code cannot show.
+- Fix lint errors instead of suppressing them; each message says what to do instead. A Claude Code hook lints every file you write, and a pre-commit hook lints staged files. A suppression needs a reason: `// eslint-disable-next-line <rule> -- <why>`. `local/no-server-code-in-client` cannot be suppressed.
 - Add a package with `pnpm add`. CI installs from `pnpm-lock.yaml` with `--frozen-lockfile`.
