@@ -3,7 +3,7 @@
   "scripts": [
     {
       "name": "Setup",
-      "command": "pnpm bootstrap",
+      "command": "pnpm bootstrap --skip-supabase-without-docker",
       "icon": "configure",
       "runOnWorktreeCreate": true,
       "async": false
@@ -22,12 +22,8 @@
     {
       "name": "Test",
       "command": "pnpm test",
-      "icon": "test"
-    },
-    {
-      "name": "Reset DB",
-      "command": "pnpm db:reset",
-      "icon": "configure"
+      "icon": "test",
+      "stopOnSettle": true
     }
   ]
 }

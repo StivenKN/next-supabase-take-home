@@ -84,7 +84,7 @@ pnpm dev:next       # Start Next.js only
 pnpm bootstrap   # Check prerequisites, install, start Supabase, write .env.local
 pnpm setup:env   # Start Supabase and write .env.local
 pnpm db:reset    # Recreate the local database from migrations and seed.sql
-pnpm check       # Lint, typecheck and unit tests (what CI runs)
+pnpm check       # Lint, typecheck and unit tests
 pnpm build       # Production build
 pnpm start       # Run production server
 pnpm lint        # Run ESLint
@@ -94,17 +94,16 @@ pnpm test:run    # Run tests once
 
 ### Working in T3 Code
 
-[`t3.json`](t3.json) declares this repository's actions for [T3 Code](https://t3.codes). Import them once per machine: open **Settings → Projects**, pick this project, and use **Import scripts** under Actions. You can also import them from a thread's actions menu, under **From t3.json**.
+[`t3.json`](t3.json) declares this repository's actions for [T3 Code](https://t3.codes). Import them once per machine: open **Settings → Projects**, pick this project, and use **Import scripts** under Actions. You can also import them from a thread's actions menu, under **From t3.json**. Importing copies them into your T3 Code settings, so import again after `t3.json` changes.
 
 | Action | Command | What it does |
 | --- | --- | --- |
-| Setup | `pnpm bootstrap` | Runs when T3 Code creates a worktree. The agent waits until it finishes, so it starts with dependencies installed, Supabase running and `.env.local` written. |
+| Setup | `pnpm bootstrap --skip-supabase-without-docker` | Runs when T3 Code creates a worktree. The agent waits until it finishes, so it starts with dependencies installed, Supabase running and `.env.local` written. If Docker is not running, Setup still installs dependencies and lets the agent start, but skips Supabase; start Docker and run `pnpm setup:env`. |
 | Dev | `pnpm dev` | Starts Supabase and Next.js. Open the app from the thread details card, which lists the ports this thread's terminals started. Stops when the thread settles. |
-| Check | `pnpm check` | Lint, typecheck and unit tests, the same checks CI runs. |
-| Test | `pnpm test` | Vitest in watch mode. |
-| Reset DB | `pnpm db:reset` | Recreates the local database from this checkout's migrations and `seed.sql`. |
+| Check | `pnpm check` | Lint, typecheck and unit tests, the same steps as CI's first job. |
+| Test | `pnpm test` | Vitest in watch mode. Stops when the thread settles. |
 
-Every worktree uses the same local Supabase stack, because `project_id` and the ports in `supabase/config.toml` are fixed. A worktree's migrations reach the database only when you run **Reset DB** from that worktree, and **Reset DB** replaces the data every other worktree sees. Next.js serves on port 3000, or on the next free port when another worktree's dev server already holds it, so use the port T3 Code lists for this thread rather than assuming 3000.
+Every worktree uses the same local Supabase stack, because `project_id` and the ports in `supabase/config.toml` are fixed. A worktree's migrations reach the database only when you run `pnpm db:reset` from that worktree, and that replaces the data every other worktree sees, which is why it is not a one-click action. Next.js serves on port 3000, or on the next free port when another worktree's dev server already holds it, so use the port T3 Code lists for this thread rather than assuming 3000.
 
 ---
 
@@ -258,7 +257,7 @@ pnpm dev:next       # Iniciar solo Next.js
 pnpm bootstrap   # Comprobar requisitos, instalar, iniciar Supabase y escribir .env.local
 pnpm setup:env   # Iniciar Supabase y escribir .env.local
 pnpm db:reset    # Recrear la base de datos local desde las migraciones y seed.sql
-pnpm check       # Lint, typecheck y pruebas unitarias (lo que ejecuta CI)
+pnpm check       # Lint, typecheck y pruebas unitarias
 pnpm build       # Compilación de producción
 pnpm start       # Servidor de producción
 pnpm lint        # Ejecutar ESLint
@@ -268,17 +267,16 @@ pnpm test:run    # Ejecutar pruebas una vez
 
 ### Trabajar en T3 Code
 
-[`t3.json`](t3.json) declara las acciones de este repositorio para [T3 Code](https://t3.codes). Impórtalas una vez por máquina: abre **Settings → Projects**, elige este proyecto y usa **Import scripts** en la sección Actions. También puedes importarlas desde el menú de acciones de un hilo, en **From t3.json**.
+[`t3.json`](t3.json) declara las acciones de este repositorio para [T3 Code](https://t3.codes). Impórtalas una vez por máquina: abre **Settings → Projects**, elige este proyecto y usa **Import scripts** en la sección Actions. También puedes importarlas desde el menú de acciones de un hilo, en **From t3.json**. Importar las copia a tu configuración de T3 Code, así que vuelve a importarlas cuando cambie `t3.json`.
 
 | Acción | Comando | Qué hace |
 | --- | --- | --- |
-| Setup | `pnpm bootstrap` | Se ejecuta cuando T3 Code crea un worktree. El agente espera a que termine, así que empieza con las dependencias instaladas, Supabase en ejecución y `.env.local` escrito. |
+| Setup | `pnpm bootstrap --skip-supabase-without-docker` | Se ejecuta cuando T3 Code crea un worktree. El agente espera a que termine, así que empieza con las dependencias instaladas, Supabase en ejecución y `.env.local` escrito. Si Docker no está en ejecución, Setup igualmente instala las dependencias y deja que el agente empiece, pero omite Supabase; inicia Docker y ejecuta `pnpm setup:env`. |
 | Dev | `pnpm dev` | Inicia Supabase y Next.js. Abre la app desde la tarjeta de detalles del hilo, que lista los puertos que abrieron las terminales de este hilo. Se detiene cuando el hilo se cierra (settle). |
-| Check | `pnpm check` | Lint, typecheck y pruebas unitarias, las mismas comprobaciones que ejecuta CI. |
-| Test | `pnpm test` | Vitest en modo watch. |
-| Reset DB | `pnpm db:reset` | Recrea la base de datos local desde las migraciones y `seed.sql` de este checkout. |
+| Check | `pnpm check` | Lint, typecheck y pruebas unitarias, los mismos pasos que el primer job de CI. |
+| Test | `pnpm test` | Vitest en modo watch. Se detiene cuando el hilo se cierra (settle). |
 
-Todos los worktrees usan el mismo stack local de Supabase, porque `project_id` y los puertos de `supabase/config.toml` son fijos. Las migraciones de un worktree llegan a la base de datos solo cuando ejecutas **Reset DB** desde ese worktree, y **Reset DB** reemplaza los datos que ven todos los demás worktrees. Next.js usa el puerto 3000, o el siguiente puerto libre si el servidor de desarrollo de otro worktree ya lo ocupa, así que usa el puerto que T3 Code lista para este hilo en lugar de asumir 3000.
+Todos los worktrees usan el mismo stack local de Supabase, porque `project_id` y los puertos de `supabase/config.toml` son fijos. Las migraciones de un worktree llegan a la base de datos solo cuando ejecutas `pnpm db:reset` desde ese worktree, y eso reemplaza los datos que ven todos los demás worktrees; por eso no es una acción de un clic. Next.js usa el puerto 3000, o el siguiente puerto libre si el servidor de desarrollo de otro worktree ya lo ocupa, así que usa el puerto que T3 Code lista para este hilo en lugar de asumir 3000.
 
 ---
 

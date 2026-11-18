@@ -1,11 +1,26 @@
 #!/usr/bin/env bash
 # One command from a fresh clone (or a new T3 Code worktree) to a runnable app:
-# checks Node, pnpm and Docker, installs dependencies, starts local Supabase and
-# writes .env.local. Safe to re-run.
+# checks Node and pnpm, installs dependencies, then checks Docker, starts local
+# Supabase and writes .env.local. Safe to re-run.
+#
+# --skip-supabase-without-docker: if Docker is not running, warn and exit 0
+# after installing instead of failing. T3 Code's Setup action uses it, because
+# a failing Setup stops the new thread's agent from starting at all.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+
+skip_supabase_without_docker=false
+for arg in "$@"; do
+  case "$arg" in
+    --skip-supabase-without-docker) skip_supabase_without_docker=true ;;
+    *)
+      echo "error: unknown option: $arg" >&2
+      exit 2
+      ;;
+  esac
+done
 
 fail() {
   echo "error: $*" >&2
@@ -13,6 +28,7 @@ fail() {
 }
 
 required_node="$(tr -d '[:space:]v' < .nvmrc)"
+required_node="${required_node%%.*}"
 required_pnpm=10
 
 command -v node >/dev/null 2>&1 ||
@@ -27,15 +43,26 @@ pnpm_major="$(pnpm --version | cut -d. -f1)"
 ((pnpm_major >= required_pnpm)) ||
   fail "pnpm ${required_pnpm} or later is required (found $(pnpm --version))."
 
-command -v docker >/dev/null 2>&1 ||
-  fail "Docker is required for local Supabase: https://docs.docker.com/get-docker/"
-docker info >/dev/null 2>&1 ||
-  fail "Docker is installed but not running. Start Docker, then run pnpm bootstrap again."
-
 pnpm install --frozen-lockfile
+
+docker_problem=""
+if ! command -v docker >/dev/null 2>&1; then
+  docker_problem="Docker is required for local Supabase: https://docs.docker.com/get-docker/"
+elif ! docker info >/dev/null 2>&1; then
+  docker_problem="Docker is installed but not running."
+fi
+
+if [[ -n "$docker_problem" ]]; then
+  if [[ "$skip_supabase_without_docker" == true ]]; then
+    echo "warning: ${docker_problem} Dependencies are installed; Supabase and .env.local were skipped." >&2
+    echo "warning: Start Docker, then run pnpm setup:env." >&2
+    exit 0
+  fi
+  fail "${docker_problem} Start Docker, then run pnpm bootstrap again."
+fi
 
 # Starts Supabase (a no-op if it is already running) and writes .env.local.
 bash scripts/setup-env.sh
 
 echo
-echo "Ready. Run pnpm dev and open http://localhost:3000"
+echo "Ready. Run pnpm dev and open the URL Next.js prints."
