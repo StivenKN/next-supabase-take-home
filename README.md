@@ -98,7 +98,7 @@ pnpm test:run    # Run tests once
 
 | Action | Command | What it does |
 | --- | --- | --- |
-| Setup | `pnpm run --if-present bootstrap --continue-without-supabase` | Runs when T3 Code creates a worktree. The agent waits until it finishes, so it starts with dependencies installed, Supabase running and `.env.local` written. If Docker is not running or Supabase fails to start, Setup still installs dependencies and lets the agent start; fix the problem and run `pnpm setup:env`. On branches without `bootstrap`, Setup skips Supabase and `.env.local` and never blocks the agent (pnpm 11+ still installs dependencies). |
+| Setup | `pnpm run --if-present bootstrap --continue-without-supabase` | Runs when T3 Code creates a worktree. The agent waits until it finishes, so it starts with dependencies installed, Supabase running and `.env.local` written. If Docker is not running or Supabase fails to start, Setup still installs dependencies and lets the agent start; fix the problem and run `pnpm setup:env`. On branches without `bootstrap`, Setup skips Supabase and `.env.local` and still lets the agent start, after pnpm 11+ has installed dependencies. |
 | Dev | `pnpm dev` | Starts Supabase and Next.js. Open the app from the thread details card, which lists the ports this thread's terminals started. Stops when the thread settles. |
 | Check | `pnpm check` | Lint, typecheck and unit tests, the same steps as CI's first job. |
 | Test | `pnpm test` | Vitest in watch mode. Stops when the thread settles. |
@@ -271,7 +271,7 @@ pnpm test:run    # Ejecutar pruebas una vez
 
 | Acción | Comando | Qué hace |
 | --- | --- | --- |
-| Setup | `pnpm run --if-present bootstrap --continue-without-supabase` | Se ejecuta cuando T3 Code crea un worktree. El agente espera a que termine, así que empieza con las dependencias instaladas, Supabase en ejecución y `.env.local` escrito. Si Docker no está en ejecución o Supabase no arranca, Setup igualmente instala las dependencias y deja que el agente empiece; corrige el problema y ejecuta `pnpm setup:env`. En ramas sin `bootstrap`, Setup omite Supabase y `.env.local` y nunca bloquea al agente (pnpm 11+ igualmente instala las dependencias). |
+| Setup | `pnpm run --if-present bootstrap --continue-without-supabase` | Se ejecuta cuando T3 Code crea un worktree. El agente espera a que termine, así que empieza con las dependencias instaladas, Supabase en ejecución y `.env.local` escrito. Si Docker no está en ejecución o Supabase no arranca, Setup igualmente instala las dependencias y deja que el agente empiece; corrige el problema y ejecuta `pnpm setup:env`. En ramas sin `bootstrap`, Setup omite Supabase y `.env.local` y deja que el agente empiece igualmente, después de que pnpm 11+ instale las dependencias. |
 | Dev | `pnpm dev` | Inicia Supabase y Next.js. Abre la app desde la tarjeta de detalles del hilo, que lista los puertos que abrieron las terminales de este hilo. Se detiene cuando el hilo se cierra (settle). |
 | Check | `pnpm check` | Lint, typecheck y pruebas unitarias, los mismos pasos que el primer job de CI. |
 | Test | `pnpm test` | Vitest en modo watch. Se detiene cuando el hilo se cierra (settle). |
