@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  checks:
+    name: Lint, typecheck, unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test:run
+
+  app:
+    # Boots the real stack the way the README does: local Supabase in Docker
+    # (migrations + seed.sql), `pnpm setup:env`, a production build, then
+    # requests the home page from the running server.
+    name: Supabase + build + smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # GitHub runners often hit the anonymous pull quota on public.ecr.aws
+      # (the CLI's default registry). Docker Hub hosts the same images.
+      SUPABASE_INTERNAL_IMAGE_REGISTRY: docker.io
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Start Supabase (applies migrations and seed.sql)
+        # Only the services the app talks to: Postgres, PostgREST, Auth, Kong.
+        run: pnpm exec supabase start -x edge-runtime,imgproxy,logflare,mailpit,postgres-meta,realtime,storage-api,studio,supavisor,vector
+
+      - name: Lint database (plpgsql errors)
+        run: pnpm exec supabase db lint --level error --fail-on error
+
+      - name: Write .env.local
+        run: pnpm setup:env
+
+      - run: pnpm build
+
+      - name: Smoke test the running app
+        run: |
+          pnpm start > next.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS -o page.html http://localhost:3000/; then
+              echo "GET / -> 200 ($(wc -c < page.html) bytes)"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "App did not answer 200 on / within 60s" >&2
+          cat next.log >&2
+          exit 1
+
+      - name: Server log
+        if: always()
+        run: cat next.log 2>/dev/null || true
+
+      - name: Stop Supabase
+        if: always()
+        run: pnpm exec supabase stop --no-backup || true
