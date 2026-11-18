@@ -396,18 +396,16 @@ async function runScale(
       `vacuum analyze ${TABLE}`,
     );
   };
-  // A Ctrl-C while the copy is in place removes it, then exits. If cleanup
-  // is already running, the handler only records the stop, and cleanup
-  // exits once it is done, so the two never race.
-  let cleaning = false;
+  // A Ctrl-C and the normal end of the case share one cleanup, so whichever
+  // comes second waits for it instead of moving on before the delete.
+  let removing: Promise<void> | undefined;
+  const removeOnce = () => (removing ??= removeCopies());
   let stopped = false;
   const onSignal = async () => {
+    if (!stopped) console.error("\nStopped. Removing the scale copies first.");
     stopped = true;
-    if (cleaning) return;
-    cleaning = true;
-    console.error("\nStopped. Removing the scale copies first.");
     try {
-      await removeCopies();
+      await removeOnce();
     } finally {
       process.exit(130);
     }
@@ -476,17 +474,14 @@ async function runScale(
     // The handlers stay on until the copies are gone. A Ctrl-C that came
     // during the blocking copy reaches its handler during this cleanup's
     // waits, and the run then exits instead of carrying on.
-    if (!cleaning) {
-      cleaning = true;
-      await removeCopies();
+    try {
+      await removeOnce();
       await sleep(20);
+    } finally {
       process.off("SIGINT", onSignal);
       process.off("SIGTERM", onSignal);
-      if (stopped) {
-        console.error("\nStopped. The scale copies are removed.");
-        process.exit(130);
-      }
     }
+    if (stopped) process.exit(130);
   }
 }
 
