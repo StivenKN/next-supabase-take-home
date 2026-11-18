@@ -94,7 +94,7 @@ pnpm test:run    # Run tests once
 
 ### Working in T3 Code
 
-[`t3.json`](t3.json) declares this repository's actions for [T3 Code](https://t3.codes). Import them once per machine: open **Settings → Projects**, pick this project, and use **Import scripts** under Actions. You can also import them from a thread's actions menu, under **From t3.json**. Importing copies them into your T3 Code settings and skips any action whose name or command you already have, so when an action in `t3.json` changes, edit it there or delete it and import it again.
+[`t3.json`](t3.json) declares this repository's actions for [T3 Code](https://t3.codes). Import them once per machine: open **Settings → Projects**, pick this project, and under Actions use **Import scripts** once for each action. You can also import them from a thread's actions menu, under **From t3.json**. Importing copies them into your T3 Code settings and skips any action whose name or command you already have, so when an action in `t3.json` changes, edit it there or delete it and import it again.
 
 | Action | Command | What it does |
 | --- | --- | --- |
@@ -267,7 +267,7 @@ pnpm test:run    # Ejecutar pruebas una vez
 
 ### Trabajar en T3 Code
 
-[`t3.json`](t3.json) declara las acciones de este repositorio para [T3 Code](https://t3.codes). Impórtalas una vez por máquina: abre **Settings → Projects**, elige este proyecto y usa **Import scripts** en la sección Actions. También puedes importarlas desde el menú de acciones de un hilo, en **From t3.json**. Importar las copia a tu configuración de T3 Code y omite cualquier acción cuyo nombre o comando ya tengas, así que cuando cambie una acción en `t3.json`, edítala allí o bórrala e impórtala de nuevo.
+[`t3.json`](t3.json) declara las acciones de este repositorio para [T3 Code](https://t3.codes). Impórtalas una vez por máquina: abre **Settings → Projects**, elige este proyecto y en la sección Actions usa **Import scripts** una vez por cada acción. También puedes importarlas desde el menú de acciones de un hilo, en **From t3.json**. Importar las copia a tu configuración de T3 Code y omite cualquier acción cuyo nombre o comando ya tengas, así que cuando cambie una acción en `t3.json`, edítala allí o bórrala e impórtala de nuevo.
 
 | Acción | Comando | Qué hace |
 | --- | --- | --- |
