@@ -14,9 +14,7 @@ reviews:
     drafts: false
     # Default pauses auto-review after 5 reviewed commits; keep reviewing.
     auto_pause_after_reviewed_commits: 0
-  path_filters:
-    - "!pnpm-lock.yaml"
-    - "!package-lock.json"
+  # No path_filters: CodeRabbit's defaults already skip lockfiles and CSVs.
   path_instructions:
     - path: "supabase/**/*.sql"
       instructions: >-
