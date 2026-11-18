@@ -1,19 +1,55 @@
 {
+  // `tsc` only type-checks here; Next.js compiles with SWC, and Vitest also reads
+  // `target` (ES2022 class fields, matching what `next build` ships). These
+  // options decide what `pnpm typecheck` (and CI) reject, so they are tuned to
+  // catch the bugs that slip through review: unchecked array/record reads,
+  // silent fallthrough, dead code, and JS built-ins the supported browsers
+  // don't have.
   "compilerOptions": {
-    "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
+    // Next.js's default browser floor is Chrome/Edge/Firefox 111 and Safari 16.4
+    // (next/dist/shared/lib/modern-browserslist-target.js), and Next does not
+    // polyfill ES2023+ built-ins for it. That floor covers ES2022 (except
+    // `Intl.Segmenter`, Firefox 125) but not ES2023 (`toSorted`/`with` arrive in
+    // Firefox 115) or ES2024 (`Object.groupBy`). A wider lib would let such code
+    // type-check and then throw in those browsers. Don't widen `lib` to silence
+    // TS2550. The `dom` lib is unversioned, so newer DOM APIs (for example
+    // `document.startViewTransition`) still need a manual compatibility check.
+    "target": "ES2022",
+    "lib": ["dom", "dom.iterable", "es2022"],
+    "allowJs": false,
     "skipLibCheck": true,
-    "strict": true,
-    "forceConsistentCasingInFileNames": true,
     "noEmit": true,
-    "esModuleInterop": true,
+    "incremental": true,
+
+    // Modules: settings Next.js requires, plus `verbatimModuleSyntax`, which
+    // makes type-only imports say `import type` so it is clear which imports
+    // disappear at build time. It implies `isolatedModules`; that stays explicit.
+    // `moduleDetection: force` treats every file as a module, so two files
+    // without imports can't collide on a top-level name.
     "module": "esnext",
     "moduleResolution": "bundler",
+    "esModuleInterop": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
     "jsx": "react-jsx",
-    "incremental": true,
+
+    // Type safety beyond `strict`.
+    "strict": true,
+    // `rows[i]` and `record[key]` are `T | undefined` until checked.
+    "noUncheckedIndexedAccess": true,
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    // Code after `return`/`throw` and unused labels are errors, not hints.
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    // Side-effect imports like `import "./setup"` must resolve. (`*.css` is
+    // declared by Next.js, so stylesheet paths are not checked.)
+    "noUncheckedSideEffectImports": true,
+    "forceConsistentCasingInFileNames": true,
+
     "plugins": [
       {
         "name": "next"
@@ -27,6 +63,7 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
+    "**/*.mts",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
