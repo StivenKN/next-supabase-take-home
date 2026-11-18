@@ -49,7 +49,7 @@ pnpm install --frozen-lockfile
 
 docker_problem=""
 if ! command -v docker >/dev/null 2>&1; then
-  docker_problem="Docker is required for local Supabase: https://docs.docker.com/get-docker/"
+  docker_problem="Docker is not installed; local Supabase needs it (https://docs.docker.com/get-docker/)."
 elif ! docker info >/dev/null 2>&1; then
   docker_problem="Docker is installed but not reachable (is the daemon running, and can this user access it?)."
 fi
