@@ -364,15 +364,30 @@ async function runScale(
   // copy carries a marker, and cleanup cancels it and waits for it to end
   // before deleting.
   const marker = "/* evals:scale-copy */";
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
   const removeCopies = async () => {
-    const running = `select count(*) from pg_stat_activity where pid <> pg_backend_pid() and query like '${marker}%'`;
-    for (let i = 0; i < 50 && sql(running) !== "0"; i++) {
-      sql(`select pg_cancel_backend(pid) from pg_stat_activity where pid <> pg_backend_pid() and query like '${marker}%'`);
-      await new Promise((resolve) => setTimeout(resolve, 200));
+    const marked = `from pg_stat_activity where pid <> pg_backend_pid() and query like '${marker}%'`;
+    // Wait until no marked query is seen twice in a row, 200 ms apart: a
+    // Ctrl-C right at the start can land before psql has sent the copy.
+    for (let quiet = 0, i = 0; quiet < 2 && i < 50; i++) {
+      if (sql(`select count(*) ${marked}`) === "0") quiet++;
+      else {
+        quiet = 0;
+        sql(`select pg_cancel_backend(pid) ${marked}`);
+      }
+      await sleep(200);
     }
     sql(`delete from ${TABLE} where ${id} > ${csv.length}`, `vacuum analyze ${TABLE}`);
   };
+  // A Ctrl-C while the copy is in place removes it, then exits. If cleanup
+  // is already running, the handler only records the stop, and cleanup
+  // exits once it is done, so the two never race.
+  let cleaning = false;
+  let stopped = false;
   const onSignal = async () => {
+    stopped = true;
+    if (cleaning) return;
+    cleaning = true;
     console.error("\nStopped. Removing the scale copies first.");
     try {
       await removeCopies();
@@ -380,8 +395,8 @@ async function runScale(
       process.exit(130);
     }
   };
-  process.once("SIGINT", onSignal);
-  process.once("SIGTERM", onSignal);
+  process.on("SIGINT", onSignal);
+  process.on("SIGTERM", onSignal);
 
   try {
     const grew = performance.now();
@@ -431,12 +446,20 @@ async function runScale(
       detail: `${total} rows (grown in ${growSeconds} s); slowest ${Math.round(slowest)} ms, limit ${c.maxMs} ms; ${timings.join("; ")}`,
     };
   } finally {
-    // Let a signal that arrived during a blocking call reach its handler
-    // first, so a stopped run exits instead of carrying on.
-    await new Promise((resolve) => setImmediate(resolve));
-    process.off("SIGINT", onSignal);
-    process.off("SIGTERM", onSignal);
-    await removeCopies();
+    // The handlers stay on until the copies are gone. A Ctrl-C that came
+    // during the blocking copy reaches its handler during this cleanup's
+    // waits, and the run then exits instead of carrying on.
+    if (!cleaning) {
+      cleaning = true;
+      await removeCopies();
+      await sleep(20);
+      process.off("SIGINT", onSignal);
+      process.off("SIGTERM", onSignal);
+      if (stopped) {
+        console.error("\nStopped. The scale copies are removed.");
+        process.exit(130);
+      }
+    }
   }
 }
 
