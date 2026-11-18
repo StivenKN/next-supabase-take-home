@@ -37,9 +37,9 @@ jobs:
 
   app:
     # Boots the real stack the way the README does: local Supabase in Docker
-    # (migrations + seed.sql), `pnpm setup:env`, a production build, then
-    # requests the home page from the running server and runs the exercise
-    # evals against it (evals/README.md).
+    # (migrations + seed.sql), `pnpm setup:env`, the CSV load, a production
+    # build, then requests the data table from the running server and runs the
+    # exercise evals against it (evals/README.md).
     # The name is a required check in the "main: CI must pass" ruleset; keep it.
     name: Supabase + build + smoke test
     runs-on: ubuntu-latest
@@ -53,13 +53,13 @@ jobs:
       SUPABASE_STORAGE_ENABLED: "false"
       # Page the smoke test loads, and text that must be in its HTML. A 200
       # alone doesn't prove much: with cacheComponents the static shell is
-      # sent before any query runs. Once the data table lands, point these at
-      # its route and at a single cell value from one row: not a label, a
-      # count, or anything a filter dropdown also shows. The match is against
-      # raw HTML, where React puts <!-- --> between adjacent JSX expressions
-      # and escapes & ' " < >.
-      SMOKE_PATH: /
-      SMOKE_EXPECT: Instructions (English)
+      # sent before any query runs. These point at the data table sorted by
+      # caffeine, highest first, and at the caffeine value of its first row
+      # (ID 1865), the largest in the CSV. No label, count, or filter control
+      # shows that number. The match is against raw HTML, where React puts
+      # <!-- --> between adjacent JSX expressions and escapes & ' " < >.
+      SMOKE_PATH: /?sort=-caffeine_mg
+      SMOKE_EXPECT: "780.3"
     steps:
       - uses: actions/checkout@v7
         with:
@@ -84,9 +84,8 @@ jobs:
         run: pnpm setup:env
 
       - name: Load the dataset
-        # A no-op until the app adds a `db:load` script. Data loaded by
-        # seed.sql is already there.
-        run: pnpm run --if-present db:load
+        # Fails unless the table's row count equals the CSV's.
+        run: pnpm db:load
 
       - run: pnpm build
 

@@ -47,7 +47,7 @@ pnpm --version   # 10.x or later
    pnpm setup:env
    ```
 
-   This starts local Supabase, reads credentials from `supabase status -o env`, and writes them to `.env.local`:
+   This starts local Supabase, reads credentials from `supabase status -o env`, writes them to `.env.local`, and loads `data/synthetic_coffee_health_10000.csv` into the `coffee_health` table if the table is empty:
 
    ```env
    NEXT_PUBLIC_SUPABASE_URL=
@@ -57,7 +57,7 @@ pnpm --version   # 10.x or later
 
    `.env.local` is gitignored and is the file Next.js loads at development time. Do not commit secrets.
 
-   To configure manually instead, copy `.env.example` to `.env.local` and fill in the values yourself.
+   To configure manually instead, copy `.env.example` to `.env.local` and fill in the values yourself, then run `pnpm db:load` to load the CSV.
 
 Shortcut: `pnpm bootstrap` runs steps 2 and 3 in one go. It checks Node.js and pnpm, installs dependencies, then checks that Docker is running before starting Supabase and writing `.env.local`. It is safe to re-run.
 
@@ -82,8 +82,9 @@ pnpm dev:next       # Start Next.js only
 
 ```bash
 pnpm bootstrap   # Check prerequisites, install, start Supabase, write .env.local
-pnpm setup:env   # Start Supabase and write .env.local
-pnpm db:reset    # Recreate the local database from migrations and seed.sql
+pnpm setup:env   # Start Supabase, write .env.local, load the CSV if the table is empty
+pnpm db:reset    # Recreate the local database from migrations and seed.sql, then load the CSV
+pnpm db:load     # Reload the CSV into coffee_health
 pnpm check       # Format check, lint, typecheck and unit tests
 pnpm build       # Production build
 pnpm start       # Run production server
@@ -178,6 +179,118 @@ During review, we will assume you understand your submission and can explain you
 
 ---
 
+## Submission notes (English)
+
+### Run it
+
+The setup steps above are all it takes. `pnpm setup:env` starts Supabase, which applies the migrations, and then loads the CSV when the table is empty. After `pnpm dev`, the table is at [http://localhost:3000](http://localhost:3000) in English and at [http://localhost:3000/es](http://localhost:3000/es) in Spanish.
+
+`pnpx supabase db reset` on its own recreates the table and leaves it empty, because it cannot read the CSV. `pnpm db:reset` runs it and then the loader. If the table is missing or empty, the page says so and shows that command.
+
+### Schema
+
+One table, `public.coffee_health`, with one row per respondent and the CSV's 16 columns in snake_case. It is defined in [supabase/schemas/coffee_health.sql](supabase/schemas/coffee_health.sql). The migration under `supabase/migrations/` came from `supabase db diff`, plus a hand-written tail for the table comment and privileges, which the diff tool does not emit.
+
+| Column                                                                          | Type                       | Why                                                                                                                                                             |
+| ------------------------------------------------------------------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                                                            | `integer` primary key      | The CSV already has a unique id.                                                                                                                                |
+| `age`, `heart_rate`                                                             | `smallint`                 | Two bytes are enough.                                                                                                                                           |
+| `coffee_intake`, `caffeine_mg`, `sleep_hours`, `bmi`, `physical_activity_hours` | `numeric` with one decimal | The CSV has one decimal. `numeric` keeps 5.3 as 5.3, which `real` does not guarantee.                                                                           |
+| `gender`, `occupation`, `sleep_quality`, `stress_level`, `health_issues`        | Postgres enums             | Closed answer sets. An enum costs four bytes, rejects a misspelled value at load time, and sorts in declared order, so Poor comes before Fair, Good, Excellent. |
+| `country`                                                                       | `text`                     | An open set. A new country should load without a migration.                                                                                                     |
+| `smoking`, `alcohol_consumption`                                                | `boolean`                  | The CSV's 0 and 1.                                                                                                                                              |
+
+Every column is `not null` and the numeric columns have range checks, so a bad row stops the load.
+
+I kept one wide table and did not split countries or occupations into lookup tables. The rows are narrow, about 110 bytes each, and a join on every page request would cost more than the bytes it saves.
+
+Row level security is on, with one `select` policy. The `anon` and `authenticated` roles can `select` and nothing else. I checked that an insert through the API with the publishable key returns 401.
+
+### Import
+
+[scripts/load-coffee-health.sh](scripts/load-coffee-health.sh) (`pnpm db:load`) streams the CSV into Postgres with `COPY`, through `psql` inside the Supabase database container, so it needs nothing installed beyond Docker.
+
+- It compares the CSV header with the expected column list first. `COPY` maps columns by position, so a reordered file would otherwise load into the wrong columns without an error.
+- `truncate` and `copy` run in one transaction. A failed load leaves the previous rows in place, and running the script twice gives the same result.
+- It runs `analyze` and then fails unless the row count in the table equals the row count in the file.
+
+The load takes about 0.3 seconds for 10,000 rows. To check it, I exported the table back to CSV and diffed it against the source file. The two are identical. CI runs the same loader against a fresh database on every pull request.
+
+I did not use `seed.sql`. The database container does not mount the repository, so a seed file cannot `COPY` from the CSV. The seed would have to be 10,000 generated `insert` rows committed next to the CSV they duplicate. `COPY` from the client is also the method that still works at millions of rows.
+
+### Filtering
+
+The URL holds all state, for example `/?country=Brazil,Germany&age=30..50&smoking=yes&sort=-caffeine_mg&page=3`. A view is a link you can share, the back button undoes a filter, and the server renders the page with no client-side data fetching. Parsing lives in [lib/coffee-health/search-params.ts](lib/coffee-health/search-params.ts) and has unit tests. It drops anything it does not understand.
+
+| Filter                    | Columns                                                           | Behaviour                                                        |
+| ------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Pick any number of values | country, gender, occupation, sleep quality, stress, health issues | Rows matching any ticked value (`in`).                           |
+| Minimum and maximum       | age, coffee, sleep, BMI                                           | Inclusive. Either side can be empty. Applied when typing pauses. |
+| Yes or no                 | smokes, drinks alcohol                                            | Exact match.                                                     |
+
+Filters combine with `and`. Changing a filter returns to page 1.
+
+Postgres does the filtering, sorting, paging, and counting through one PostgREST request built in [lib/coffee-health/queries.ts](lib/coffee-health/queries.ts).
+
+- **Paging method.** Numbered pages of 50 rows with `limit` and `offset`. The browser never receives more than one page, whatever the table size. The API's cap of 1,000 rows per response (`max_rows`) is untouched and never reached.
+- **Count method.** PostgREST's exact count (`count: "exact"`), which runs `count(*)` over the filtered rows in the same request. The pager needs it to show the last page number.
+
+Both choices are the simple ones, and both have a cost at scale that the next section measures.
+
+The country list, the total row count, and the min and max of each range come from one SQL function, `coffee_health_summary()`. Its result does not depend on the filters, so Next.js caches it with `"use cache"` and refreshes it in the background once it is a minute old.
+
+Only columns with an index are sortable: id, age, country, caffeine, coffee, sleep, heart rate, and BMI. Every sort adds `id` as a tiebreaker. Without it, rows with the same age could swap places between requests and appear on two pages or on none.
+
+### Scale
+
+I copied the dataset 200 times into a 2 million row table with the same indexes and ran each query shape the page can produce. [scripts/bench-scale.sql](scripts/bench-scale.sql) reproduces this. The times below are single runs of `EXPLAIN ANALYZE` on Postgres 17 in Docker on a laptop, so read them as orders of magnitude.
+
+| Query at 2 million rows                                     | Time         |
+| ----------------------------------------------------------- | ------------ |
+| First page, default order                                   | 0.2 ms       |
+| First page sorted by an indexed column                      | 0.2 ms       |
+| First page filtered by country, or by stress and sleep      | 0.1 ms       |
+| First page with a rare filter and a sort (2% of rows match) | 21 ms        |
+| First page when no row matches, sorted                      | 72 ms        |
+| Exact count, no filter                                      | 50 ms        |
+| Exact count with filters                                    | 40 to 200 ms |
+| Page 20,001 (offset 1,000,000), default order               | 140 ms       |
+| Page 20,001, sorted by BMI                                  | 1,100 ms     |
+| Distinct countries, by loose index scan                     | 0.5 ms       |
+| Same list with `select distinct`                            | 115 ms       |
+| Top 50 by a column with no index                            | 95 ms        |
+
+What holds up:
+
+- **Reading a page.** Each sortable column has a `(column, id)` index. Postgres reads the first 50 entries from the index and stops, so the time does not grow with the table.
+- **The country list.** `select distinct country` reads every row. The summary function instead jumps from one country to the next through the index, which costs one index probe per country at any table size. The same function also runs the unfiltered `count(*)`, about 50 ms at 2 million rows, which is why its result is cached.
+- **Page weight.** A page is about 210 KB of HTML, under 40 KB gzipped, at any table size. My first version was 650 KB because every cell was a client component with a long class list. Cells are now plain server-rendered `<td>` elements styled by a few CSS rules, which is why the table does not use `components/ui/table`.
+
+What does not hold up, and what I would change:
+
+- **The exact count** reads every matching row, so it grows with the table: about 50 ms at 2 million rows and roughly ten times that at 20 million. PostgREST can return the planner's estimate above a threshold (`count: "estimated"`), which is a one-line change in `getPage`. The cost is that the pager would say "about 1.2 million" and could no longer show an exact last page.
+- **Deep pages.** `offset` makes Postgres walk past every skipped row. Page 20,001 takes over a second on a non-default sort. Keyset pagination ("rows after this id") fixes that and costs the ability to jump to an arbitrary page number. I kept numbered pages because, at this size, jumping around is more useful than the milliseconds, and nobody reads to page 20,001 without filtering first.
+- **Index size.** Eight indexes take 456 MB next to 211 MB of table at 2 million rows. That is the price of making eight columns sortable. A table with heavy writes would keep fewer.
+- **Low-cardinality filters have no index.** Gender has three values, so an index on it would not narrow the search enough for Postgres to use it. A filter that matches almost nothing, combined with a sort, makes Postgres walk the sort index until it finds 50 matches: 72 ms at 2 million rows in the worst case, and it grows linearly. If one such combination became common, it would get its own composite or partial index.
+- **Unindexed columns are not sortable** for the same reason: 95 ms at 2 million rows, growing with the table.
+
+Supabase gives the `anon` role a 3 second statement timeout, which bounds the worst case.
+
+### Interface
+
+- English at `/` and Spanish at `/es`, each with its own root layout so `<html lang>` is right in the static HTML. The language links keep the current filters. Values stored in English (Good, Germany) are translated for display only.
+- Coffee and sleep sit side by side with bars that grow away from the line between them: amber to the left for cups, blue to the right for hours. Bars are scaled to the dataset's maximum, so they compare across pages.
+- Light and dark themes, usable at phone width, keyboard operable. Filter menus, inputs, and labels come from `components/ui`. The min and max panels use the browser's native `popover` attribute, which avoided adding a dependency.
+
+### Left out
+
+- Counts next to each filter option ("Brazil, 456"). Each one is a `group by` over the filtered rows, which is the same cost as the exact count again per filter.
+- Free-text search. No column needs it.
+- A test suite against a running database. The unit tests cover URL parsing and page-number logic. CI loads the CSV into a fresh Supabase, builds the app, and checks that the page sorted by caffeine shows the largest value in the CSV. Beyond that, I checked the queries by comparing counts in the running app with counts computed from the CSV in Python.
+- A styled 404 page. An unknown path gets the Next.js default.
+
+---
+
 ## Configuración (Español)
 
 ### Requisitos del sistema
@@ -221,7 +334,7 @@ pnpm --version   # 10.x o superior
    pnpm setup:env
    ```
 
-   Esto inicia Supabase localmente, lee las credenciales de `supabase status -o env` y las escribe en `.env.local`:
+   Esto inicia Supabase localmente, lee las credenciales de `supabase status -o env`, las escribe en `.env.local` y carga `data/synthetic_coffee_health_10000.csv` en la tabla `coffee_health` si la tabla está vacía:
 
    ```env
    NEXT_PUBLIC_SUPABASE_URL=
@@ -231,7 +344,7 @@ pnpm --version   # 10.x o superior
 
    `.env.local` está en `.gitignore` y es el archivo que Next.js carga en desarrollo. No subas secretos al repositorio.
 
-   Para configurar manualmente, copia `.env.example` a `.env.local` y completa los valores tú mismo.
+   Para configurar manualmente, copia `.env.example` a `.env.local` y completa los valores tú mismo. Después ejecuta `pnpm db:load` para cargar el CSV.
 
 Atajo: `pnpm bootstrap` ejecuta los pasos 2 y 3 de una vez. Comprueba Node.js y pnpm, instala las dependencias y luego comprueba que Docker esté en ejecución antes de iniciar Supabase y escribir `.env.local`. Puedes volver a ejecutarlo sin problema.
 
@@ -256,8 +369,9 @@ pnpm dev:next       # Iniciar solo Next.js
 
 ```bash
 pnpm bootstrap   # Comprobar requisitos, instalar, iniciar Supabase y escribir .env.local
-pnpm setup:env   # Iniciar Supabase y escribir .env.local
-pnpm db:reset    # Recrear la base de datos local desde las migraciones y seed.sql
+pnpm setup:env   # Iniciar Supabase, escribir .env.local y cargar el CSV si la tabla está vacía
+pnpm db:reset    # Recrear la base de datos local desde las migraciones y seed.sql, y cargar el CSV
+pnpm db:load     # Recargar el CSV en coffee_health
 pnpm check       # Verificación de formato, lint, typecheck y pruebas unitarias
 pnpm build       # Compilación de producción
 pnpm start       # Servidor de producción
@@ -349,3 +463,115 @@ Durante la revisión, asumiremos que entiendes tu entrega y que puedes explicar 
 
 - Configuración local funcional: datos cargados, tabla visible en [http://localhost:3000](http://localhost:3000) (o en una ruta que añadas).
 - Notas breves sobre tu esquema, enfoque de importación, estrategia de filtrado y decisiones de escala.
+
+---
+
+## Notas de entrega (Español)
+
+### Cómo ejecutarlo
+
+Los pasos de configuración de arriba son todo lo necesario. `pnpm setup:env` inicia Supabase, que aplica las migraciones, y después carga el CSV si la tabla está vacía. Tras `pnpm dev`, la tabla está en [http://localhost:3000](http://localhost:3000) en inglés y en [http://localhost:3000/es](http://localhost:3000/es) en español.
+
+`pnpx supabase db reset` por sí solo recrea la tabla y la deja vacía, porque no puede leer el CSV. `pnpm db:reset` lo ejecuta y después corre el cargador. Si la tabla falta o está vacía, la página lo dice y muestra ese comando.
+
+### Esquema
+
+Una tabla, `public.coffee_health`, con una fila por persona encuestada y las 16 columnas del CSV en snake_case. Está definida en [supabase/schemas/coffee_health.sql](supabase/schemas/coffee_health.sql). La migración en `supabase/migrations/` salió de `supabase db diff`, más un final escrito a mano con el comentario de la tabla y los privilegios, que la herramienta de diff no genera.
+
+| Columna                                                                         | Tipo                      | Por qué                                                                                                                                                                               |
+| ------------------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                                                            | `integer`, clave primaria | El CSV ya trae un id único.                                                                                                                                                           |
+| `age`, `heart_rate`                                                             | `smallint`                | Dos bytes alcanzan.                                                                                                                                                                   |
+| `coffee_intake`, `caffeine_mg`, `sleep_hours`, `bmi`, `physical_activity_hours` | `numeric` con un decimal  | El CSV tiene un decimal. `numeric` guarda 5.3 como 5.3, algo que `real` no garantiza.                                                                                                 |
+| `gender`, `occupation`, `sleep_quality`, `stress_level`, `health_issues`        | enums de Postgres         | Conjuntos cerrados de respuestas. Un enum ocupa cuatro bytes, rechaza un valor mal escrito al cargar y ordena según su declaración, así que Poor va antes que Fair, Good y Excellent. |
+| `country`                                                                       | `text`                    | Conjunto abierto. Un país nuevo debe cargarse sin una migración.                                                                                                                      |
+| `smoking`, `alcohol_consumption`                                                | `boolean`                 | Los 0 y 1 del CSV.                                                                                                                                                                    |
+
+Todas las columnas son `not null` y las numéricas tienen restricciones de rango, así que una fila inválida detiene la carga.
+
+Mantuve una sola tabla ancha y no separé países ni ocupaciones en tablas de catálogo. Las filas son angostas, unos 110 bytes cada una, y un join en cada petición de página costaría más que los bytes que ahorra.
+
+Row level security está activado, con una política de `select`. Los roles `anon` y `authenticated` pueden hacer `select` y nada más. Comprobé que un insert por la API con la clave publicable devuelve 401.
+
+### Importación
+
+[scripts/load-coffee-health.sh](scripts/load-coffee-health.sh) (`pnpm db:load`) envía el CSV a Postgres con `COPY`, usando `psql` dentro del contenedor de base de datos de Supabase, así que no requiere instalar nada aparte de Docker.
+
+- Primero compara el encabezado del CSV con la lista de columnas esperada. `COPY` asigna las columnas por posición, así que un archivo reordenado se cargaría en las columnas equivocadas sin dar error.
+- `truncate` y `copy` corren en una sola transacción. Una carga fallida deja las filas anteriores en su lugar, y ejecutar el script dos veces da el mismo resultado.
+- Ejecuta `analyze` y falla si el número de filas de la tabla no es igual al del archivo.
+
+La carga tarda unos 0,3 segundos para 10.000 filas. Para comprobarla, exporté la tabla de vuelta a CSV y la comparé con el archivo original usando `diff`. Son idénticos. La CI ejecuta el mismo cargador contra una base de datos nueva en cada pull request.
+
+No usé `seed.sql`. El contenedor de la base de datos no monta el repositorio, así que un archivo de seed no puede hacer `COPY` desde el CSV. El seed tendría que ser 10.000 filas `insert` generadas y guardadas junto al CSV que duplican. `COPY` desde el cliente es además el método que sigue funcionando con millones de filas.
+
+### Filtros
+
+La URL guarda todo el estado, por ejemplo `/es?country=Brazil,Germany&age=30..50&smoking=yes&sort=-caffeine_mg&page=3`. Una vista es un enlace que se puede compartir, el botón Atrás deshace un filtro y el servidor renderiza la página sin peticiones de datos desde el cliente. El análisis de la URL vive en [lib/coffee-health/search-params.ts](lib/coffee-health/search-params.ts) y tiene pruebas unitarias. Descarta todo lo que no entiende.
+
+| Filtro                             | Columnas                                                               | Comportamiento                                                                             |
+| ---------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Elegir cualquier número de valores | país, género, ocupación, calidad del sueño, estrés, problemas de salud | Filas que coinciden con cualquiera de los valores marcados (`in`).                         |
+| Mínimo y máximo                    | edad, café, sueño, IMC                                                 | Inclusivo. Cualquiera de los dos lados puede quedar vacío. Se aplica al dejar de escribir. |
+| Sí o no                            | fuma, bebe alcohol                                                     | Coincidencia exacta.                                                                       |
+
+Los filtros se combinan con `and`. Cambiar un filtro vuelve a la página 1.
+
+Postgres filtra, ordena, pagina y cuenta en una sola petición a PostgREST que se arma en [lib/coffee-health/queries.ts](lib/coffee-health/queries.ts).
+
+- **Método de paginación.** Páginas numeradas de 50 filas con `limit` y `offset`. El navegador nunca recibe más de una página, sin importar el tamaño de la tabla. El límite de 1.000 filas por respuesta de la API (`max_rows`) queda intacto y nunca se alcanza.
+- **Método de conteo.** El conteo exacto de PostgREST (`count: "exact"`), que ejecuta `count(*)` sobre las filas filtradas en la misma petición. El paginador lo necesita para mostrar el número de la última página.
+
+Las dos decisiones son las simples, y las dos tienen un costo a escala que la siguiente sección mide.
+
+La lista de países, el total de filas y el mínimo y máximo de cada rango salen de una función SQL, `coffee_health_summary()`. Su resultado no depende de los filtros, así que Next.js lo guarda en caché con `"use cache"` y lo actualiza en segundo plano cuando tiene más de un minuto.
+
+Solo se puede ordenar por columnas con índice: id, edad, país, cafeína, café, sueño, pulso e IMC. Cada orden agrega `id` como desempate. Sin él, las filas con la misma edad podrían cambiar de lugar entre peticiones y salir en dos páginas o en ninguna.
+
+### Escala
+
+Copié el conjunto de datos 200 veces en una tabla de 2 millones de filas con los mismos índices y ejecuté cada forma de consulta que la página puede producir. [scripts/bench-scale.sql](scripts/bench-scale.sql) lo reproduce. Los tiempos de abajo son ejecuciones únicas de `EXPLAIN ANALYZE` en Postgres 17 dentro de Docker en un portátil, así que sirven como órdenes de magnitud.
+
+| Consulta con 2 millones de filas                                                     | Tiempo      |
+| ------------------------------------------------------------------------------------ | ----------- |
+| Primera página, orden por defecto                                                    | 0,2 ms      |
+| Primera página ordenada por una columna con índice                                   | 0,2 ms      |
+| Primera página filtrada por país, o por estrés y sueño                               | 0,1 ms      |
+| Primera página con un filtro poco frecuente y un orden (coincide el 2% de las filas) | 21 ms       |
+| Primera página cuando ninguna fila coincide, con orden                               | 72 ms       |
+| Conteo exacto, sin filtros                                                           | 50 ms       |
+| Conteo exacto con filtros                                                            | 40 a 200 ms |
+| Página 20.001 (offset 1.000.000), orden por defecto                                  | 140 ms      |
+| Página 20.001, ordenada por IMC                                                      | 1.100 ms    |
+| Países distintos, con loose index scan                                               | 0,5 ms      |
+| La misma lista con `select distinct`                                                 | 115 ms      |
+| Primeras 50 filas por una columna sin índice                                         | 95 ms       |
+
+Lo que aguanta:
+
+- **Leer una página.** Cada columna ordenable tiene un índice `(columna, id)`. Postgres lee las primeras 50 entradas del índice y se detiene, así que el tiempo no crece con la tabla.
+- **La lista de países.** `select distinct country` lee todas las filas. La función de resumen salta de un país al siguiente por el índice, lo que cuesta una búsqueda en el índice por país con cualquier tamaño de tabla. La misma función también ejecuta el `count(*)` sin filtros, unos 50 ms con 2 millones de filas, y por eso su resultado se guarda en caché.
+- **El peso de la página.** Una página pesa unos 210 KB de HTML, menos de 40 KB con gzip, con cualquier tamaño de tabla. Mi primera versión pesaba 650 KB porque cada celda era un componente de cliente con una lista larga de clases. Ahora las celdas son elementos `<td>` simples renderizados en el servidor, con estilos de unas pocas reglas CSS, y por eso la tabla no usa `components/ui/table`.
+
+Lo que no aguanta, y qué cambiaría:
+
+- **El conteo exacto** lee todas las filas que coinciden, así que crece con la tabla: unos 50 ms con 2 millones de filas y cerca de diez veces más con 20 millones. PostgREST puede devolver la estimación del planificador por encima de un umbral (`count: "estimated"`), un cambio de una línea en `getPage`. El costo es que el paginador diría "cerca de 1,2 millones" y ya no podría mostrar una última página exacta.
+- **Las páginas profundas.** `offset` obliga a Postgres a recorrer cada fila que se salta. La página 20.001 tarda más de un segundo con un orden distinto al de por defecto. La paginación por cursor ("filas después de este id") lo resuelve y cuesta la posibilidad de saltar a un número de página cualquiera. Mantuve las páginas numeradas porque, con este tamaño, saltar entre páginas es más útil que esos milisegundos, y nadie llega a la página 20.001 sin filtrar antes.
+- **El tamaño de los índices.** Ocho índices ocupan 456 MB junto a 211 MB de tabla con 2 millones de filas. Es el precio de poder ordenar por ocho columnas. Una tabla con muchas escrituras tendría menos.
+- **Los filtros de baja cardinalidad no tienen índice.** Género tiene tres valores, así que un índice sobre esa columna no reduciría la búsqueda lo suficiente para que Postgres lo use. Un filtro que casi no coincide con nada, combinado con un orden, hace que Postgres recorra el índice del orden hasta encontrar 50 coincidencias: 72 ms con 2 millones de filas en el peor caso, y crece de forma lineal. Si una combinación así se volviera frecuente, tendría su propio índice compuesto o parcial.
+- **No se puede ordenar por columnas sin índice** por la misma razón: 95 ms con 2 millones de filas, y crece con la tabla.
+
+Supabase le da al rol `anon` un tiempo máximo de 3 segundos por consulta, lo que acota el peor caso.
+
+### Interfaz
+
+- Inglés en `/` y español en `/es`, cada uno con su propio layout raíz para que `<html lang>` sea correcto en el HTML estático. Los enlaces de idioma conservan los filtros actuales. Los valores guardados en inglés (Good, Germany) se traducen solo al mostrarlos.
+- Café y sueño van lado a lado con barras que crecen alejándose de la línea que los separa: ámbar hacia la izquierda para las tazas, azul hacia la derecha para las horas. Las barras usan como escala el máximo del conjunto de datos, así que se pueden comparar entre páginas.
+- Temas claro y oscuro, usable en el ancho de un teléfono y operable con teclado. Los menús de filtros, los campos y las etiquetas vienen de `components/ui`. Los paneles de mínimo y máximo usan el atributo nativo `popover` del navegador, lo que evitó agregar una dependencia.
+
+### Lo que quedó fuera
+
+- Conteos junto a cada opción de filtro ("Brasil, 456"). Cada uno es un `group by` sobre las filas filtradas, el mismo costo del conteo exacto otra vez por cada filtro.
+- Búsqueda de texto libre. Ninguna columna la necesita.
+- Una suite de pruebas contra una base de datos en ejecución. Las pruebas unitarias cubren el análisis de la URL y la lógica de los números de página. La CI carga el CSV en un Supabase nuevo, compila la aplicación y comprueba que la página ordenada por cafeína muestra el valor más alto del CSV. Además, verifiqué las consultas comparando los conteos de la aplicación en ejecución con conteos calculados desde el CSV en Python.
+- Una página 404 con estilos. Una ruta desconocida recibe la página por defecto de Next.js.
