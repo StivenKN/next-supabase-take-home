@@ -14,7 +14,7 @@ Make these statements true for the reviewers, and then keep them true:
 
 - **The app works from a fresh clone.** The README setup must end with 10,000 loaded rows and a visible table. A fresh clone gets rows only from the migrations and `supabase/seed.sql`, or from a step that the README tells the reviewer to run. If your change adds a setup step, add the step to the README in English and in Spanish.
 - **The design holds at millions of rows.** Filter, sort, page, and count in Postgres. Do not send the full dataset to the browser.
-- **We can explain the code without you.** Choose the plain solution. When you add a dependency, say in the pull request body what the dependency replaces. Record each trade-off in the submission notes. The submission notes are two sections of `README.md`, `## Submission notes (English)` and `## Notas de entrega (Español)`. If a section does not exist, add `## Submission notes (English)` directly after the `## Exercise (English)` section, and add `## Notas de entrega (Español)` directly after the `## Ejercicio (Español)` section.
+- **We can explain the code without you.** Choose the plain solution. When you add a dependency, say in the pull request body what the dependency replaces. Record each trade-off in the submission notes. The submission notes are two sections of `README.md`, `## Submission notes (English)` and `## Notas de entrega (Español)`. If the English section does not exist, add `## Submission notes (English)` directly after the `## Exercise (English)` section. If the Spanish section does not exist, add `## Notas de entrega (Español)` directly after the `## Ejercicio (Español)` section.
 
 ## Other agents share your machine
 
@@ -40,9 +40,9 @@ Several agents work on this repo at the same time, each in a separate git worktr
 
 ## Run the app
 
-If the Setup action from `t3.json` is imported, T3 Code runs `pnpm bootstrap` when it creates a worktree. Any other new worktree has no `node_modules` directory and no `.env.local` file.
+If the Setup action from `t3.json` is imported, T3 Code runs `pnpm bootstrap --continue-without-supabase` when it creates a worktree. With that flag, the command does not fail when Docker or Supabase fails, and then writes no `.env.local` file. Any other new worktree has no `node_modules` directory and no `.env.local` file.
 
-1. If `node_modules` or `.env.local` is missing, run `pnpm bootstrap`. This command installs the packages, starts the Supabase stack if the stack is not running, and writes `.env.local`. If Docker is not running, the command fails. Start Docker, and then run `pnpm bootstrap` again.
+1. If `node_modules` or `.env.local` is missing, run `pnpm bootstrap`. This command installs the packages, starts the Supabase stack if the stack is not running, and writes `.env.local`. If the command cannot reach Docker, the command fails and prints the cause. Fix the cause, and then run `pnpm bootstrap` again.
 2. Run `pnpm dev:next`. The server uses port 3000. If another worktree holds port 3000, the server uses the next free port. Read the URL from the command output.
 
 ## Change the schema
@@ -67,7 +67,7 @@ pnpm build
 ```
 
 - CI also runs `supabase start`. That command applies the migrations and `supabase/seed.sql`. The CI database holds the CSV rows only if a migration or `supabase/seed.sql` loads them. Then CI runs `supabase db lint` and builds the app.
-- The CI step `Smoke test the running app` requests the path in `SMOKE_PATH` from the built app, and searches the HTML for the text in `SMOKE_EXPECT`. Both variables are set in `.github/workflows/ci.yml`. When your change adds the data table, set `SMOKE_PATH` to the route of the table, and set `SMOKE_EXPECT` to one cell value from one row. If a later change removes that text from the page, update both variables.
+- The CI step `Smoke test the running app` requests the path in `SMOKE_PATH` from the built app, and searches the HTML for the text in `SMOKE_EXPECT`. Both variables are set in `.github/workflows/ci.yml`. When your change adds the data table, set `SMOKE_PATH` to the route of the table, and set `SMOKE_EXPECT` to one cell value from one row. Choose a value that no label, count, or filter control also shows. If a later change removes that text from the page, update both variables.
 - Vitest runs each file that matches `**/*.{test,spec}.{ts,tsx}`. Put a test file next to the code that the file tests.
 - Test logic that can break, such as the code that turns URL parameters into a query. Do not test static markup, copy text, or behavior that the types guarantee.
 - Passing checks do not prove the feature. Open the page in a browser with all 10,000 rows loaded. Compare the row count in Postgres with the row count of the CSV. Apply each filter. Open a page past row 1,000.
