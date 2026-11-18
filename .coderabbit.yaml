@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit PR review config. Free for public repos.
+language: en-US
+reviews:
+  profile: chill
+  poem: false
+  in_progress_fortune: false
+  high_level_summary: true
+  # Put the summary in CodeRabbit's walkthrough comment, not the PR description.
+  high_level_summary_in_walkthrough: true
+  sequence_diagrams: false
+  auto_review:
+    enabled: true
+    drafts: false
+    # Default pauses auto-review after 5 reviewed commits; keep reviewing.
+    auto_pause_after_reviewed_commits: 0
+  # No path_filters: CodeRabbit's defaults already skip lockfiles and CSVs.
+  path_instructions:
+    - path: "supabase/**/*.sql"
+      instructions: >-
+        Postgres schema for a dataset expected to grow to millions of rows.
+        Check that column types fit the data, that columns used for filtering
+        or sorting have suitable indexes, that RLS is enabled on public
+        tables, and that migrations and supabase/schemas stay consistent.
+    - path: "{app,lib,components}/**"
+      instructions: >-
+        The table must stay fast at hundreds of thousands to millions of rows.
+        Flag anything that fetches or renders the whole dataset, filters or
+        sorts on the client instead of in Postgres, uses unbounded exact
+        counts, or exposes SUPABASE_SECRET_KEY to client code.
+chat:
+  auto_reply: true
