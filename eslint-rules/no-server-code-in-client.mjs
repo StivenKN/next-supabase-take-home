@@ -18,7 +18,7 @@ const SERVER_MODULES = [
   {
     pattern: /^server-only$/,
     message:
-      "A `\"use client\"` file cannot import `server-only`. Split the server part into its own module.",
+      'A `"use client"` file cannot import `server-only`. Split the server part into its own module.',
   },
 ];
 
@@ -26,14 +26,17 @@ const PUBLIC_ENV = /^NEXT_PUBLIC_/;
 const ALWAYS_INLINED_ENV = new Set(["NODE_ENV"]);
 
 const ENV_MESSAGE =
-  "`process.env.{{name}}` is not available in a `\"use client\"` file: Next.js only inlines " +
+  '`process.env.{{name}}` is not available in a `"use client"` file: Next.js only inlines ' +
   "`NEXT_PUBLIC_*` variables into the browser bundle, so this reads `undefined` there. " +
   "Secrets such as `SUPABASE_SECRET_KEY` must stay on the server. " +
   "Read it in a Server Component, Server Action, or Route Handler and pass down only what the browser may see.";
 
 function isClientModule(program) {
   for (const statement of program.body) {
-    if (statement.type !== "ExpressionStatement" || typeof statement.directive !== "string") {
+    if (
+      statement.type !== "ExpressionStatement" ||
+      typeof statement.directive !== "string"
+    ) {
       return false;
     }
     if (statement.directive === "use client") return true;
@@ -43,8 +46,13 @@ function isClientModule(program) {
 
 function envName(node) {
   if (!isProcessEnv(node.object)) return undefined;
-  if (!node.computed && node.property.type === "Identifier") return node.property.name;
-  if (node.computed && node.property.type === "Literal" && typeof node.property.value === "string") {
+  if (!node.computed && node.property.type === "Identifier")
+    return node.property.name;
+  if (
+    node.computed &&
+    node.property.type === "Literal" &&
+    typeof node.property.value === "string"
+  ) {
     return node.property.value;
   }
   return undefined;
@@ -69,10 +77,16 @@ const rule = {
       if (source === undefined) return;
       // `./server` from lib/supabase/ is the same module as `@/lib/supabase/server`.
       const resolved = source.startsWith(".")
-        ? path.resolve(path.dirname(context.filename), source).split(path.sep).join("/")
+        ? path
+            .resolve(path.dirname(context.filename), source)
+            .split(path.sep)
+            .join("/")
         : source;
-      const match = SERVER_MODULES.find(({ pattern }) => pattern.test(resolved));
-      if (match) context.report({ node, message: match.message, data: { source } });
+      const match = SERVER_MODULES.find(({ pattern }) =>
+        pattern.test(resolved),
+      );
+      if (match)
+        context.report({ node, message: match.message, data: { source } });
     }
 
     return {
@@ -92,7 +106,10 @@ const rule = {
         checkSource(node, node.source);
       },
       CallExpression(node) {
-        if (node.callee.type === "Identifier" && node.callee.name === "require") {
+        if (
+          node.callee.type === "Identifier" &&
+          node.callee.name === "require"
+        ) {
           checkSource(node, node.arguments[0]);
         }
       },
@@ -102,9 +119,18 @@ const rule = {
         if (name !== undefined) reportEnv(node, name);
       },
       VariableDeclarator(node) {
-        if (!client || node.id.type !== "ObjectPattern" || !isProcessEnv(node.init)) return;
+        if (
+          !client ||
+          node.id.type !== "ObjectPattern" ||
+          !isProcessEnv(node.init)
+        )
+          return;
         for (const property of node.id.properties) {
-          if (property.type === "Property" && !property.computed && property.key.type === "Identifier") {
+          if (
+            property.type === "Property" &&
+            !property.computed &&
+            property.key.type === "Identifier"
+          ) {
             reportEnv(property, property.key.name);
           }
         }
@@ -127,7 +153,8 @@ function isTypeOnly(node, kind) {
 }
 
 function staticString(node) {
-  if (node?.type === "Literal" && typeof node.value === "string") return node.value;
+  if (node?.type === "Literal" && typeof node.value === "string")
+    return node.value;
   if (node?.type === "TemplateLiteral" && node.expressions.length === 0) {
     return node.quasis[0]?.value.cooked ?? undefined;
   }

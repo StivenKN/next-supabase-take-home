@@ -30,7 +30,10 @@ ruleTester.run("no-unreasoned-effect", noUnreasonedEffect, {
   invalid: [
     { code: "useEffect(() => setRows(filter(data)), [data]);", errors: 1 },
     { code: "React.useLayoutEffect(() => {}, []);", errors: 1 },
-    { code: 'import { useEffect as useFx } from "react";\nuseFx(() => {}, []);', errors: 1 },
+    {
+      code: 'import { useEffect as useFx } from "react";\nuseFx(() => {}, []);',
+      errors: 1,
+    },
     { code: "useInsertionEffect(() => {});", errors: 1 },
   ],
 });
@@ -52,16 +55,40 @@ ruleTester.run("no-accumulating-spread", noAccumulatingSpread, {
     'rows.reduce((acc, row) => acc.concat(row.id), "");',
   ],
   invalid: [
-    { code: "rows.reduce((acc, row) => ({ ...acc, [row.id]: row }), {});", errors: 1 },
+    {
+      code: "rows.reduce((acc, row) => ({ ...acc, [row.id]: row }), {});",
+      errors: 1,
+    },
     { code: "rows.reduce((acc, row) => [...acc, row.id], []);", errors: 1 },
-    { code: "rows.reduceRight((acc = [], row) => [...acc, row], []);", errors: 1 },
-    { code: "let out = []; for (const row of rows) { out = [...out, row]; }", errors: 1 },
-    { code: "for (let out = [], i = 0; i < n; i++) { out = [...out, i]; }", errors: 1 },
-    { code: "let map = {}; while (next()) { map = { ...map, [k]: v }; }", errors: 1 },
-    { code: "let out = []; rows.forEach((row) => { out = [...out, row]; });", errors: 1 },
+    {
+      code: "rows.reduceRight((acc = [], row) => [...acc, row], []);",
+      errors: 1,
+    },
+    {
+      code: "let out = []; for (const row of rows) { out = [...out, row]; }",
+      errors: 1,
+    },
+    {
+      code: "for (let out = [], i = 0; i < n; i++) { out = [...out, i]; }",
+      errors: 1,
+    },
+    {
+      code: "let map = {}; while (next()) { map = { ...map, [k]: v }; }",
+      errors: 1,
+    },
+    {
+      code: "let out = []; rows.forEach((row) => { out = [...out, row]; });",
+      errors: 1,
+    },
     { code: "rows.reduce((acc, row) => acc.concat(row.tags), []);", errors: 1 },
-    { code: "rows.reduce((acc, row) => acc.concat(row.tags), [] as string[]);", errors: 1 },
-    { code: "let out: Row[] = []; for (const row of rows) { out = [...out, row] as Row[]; }", errors: 1 },
+    {
+      code: "rows.reduce((acc, row) => acc.concat(row.tags), [] as string[]);",
+      errors: 1,
+    },
+    {
+      code: "let out: Row[] = []; for (const row of rows) { out = [...out, row] as Row[]; }",
+      errors: 1,
+    },
   ],
 });
 
@@ -74,7 +101,10 @@ ruleTester.run("no-server-code-in-client", noServerCodeInClient, {
     "const key = process.env.SUPABASE_SECRET_KEY;",
     `${CLIENT}import { createClient } from "@/lib/supabase/client";`,
     `${CLIENT}import { helpers } from "@/lib/supabase/server-helpers";`,
-    { code: `${CLIENT}import { Row } from "./server";`, filename: "app/table/widget.tsx" },
+    {
+      code: `${CLIENT}import { Row } from "./server";`,
+      filename: "app/table/widget.tsx",
+    },
     `${CLIENT}const url = process.env.NEXT_PUBLIC_SUPABASE_URL;`,
     `${CLIENT}const dev = process.env.NODE_ENV === "development";`,
     `${CLIENT}const { NEXT_PUBLIC_SUPABASE_URL } = process.env;`,
@@ -85,26 +115,68 @@ ruleTester.run("no-server-code-in-client", noServerCodeInClient, {
     `${CLIENT}export type * from "@/lib/supabase/server";`,
   ],
   invalid: [
-    { code: `${CLIENT}import { createAdminClient } from "@/lib/supabase/server";`, errors: 1 },
-    { code: `${CLIENT}import { createClient } from "../../lib/supabase/server";`, errors: 1 },
-    { code: `${CLIENT}import { createClient } from "../lib/supabase/server.js";`, errors: 1 },
+    {
+      code: `${CLIENT}import { createAdminClient } from "@/lib/supabase/server";`,
+      errors: 1,
+    },
+    {
+      code: `${CLIENT}import { createClient } from "../../lib/supabase/server";`,
+      errors: 1,
+    },
+    {
+      code: `${CLIENT}import { createClient } from "../lib/supabase/server.js";`,
+      errors: 1,
+    },
     {
       code: `${CLIENT}import { createClient } from "./server";`,
       filename: "lib/supabase/widget.tsx",
       errors: 1,
     },
-    { code: `${CLIENT}import { createClient } from "@/lib/supabase/server/index";`, errors: 1 },
-    { code: `${CLIENT}export { createClient } from "@/lib/supabase/server";`, errors: 1 },
-    { code: `${CLIENT}const mod = import("@/lib/supabase/server");`, errors: 1 },
-    { code: `${CLIENT}const mod = import(\`@/lib/supabase/server\`);`, errors: 1 },
-    { code: `${CLIENT}const mod = require("@/lib/supabase/server");`, errors: 1 },
+    {
+      code: `${CLIENT}import { createClient } from "@/lib/supabase/server/index";`,
+      errors: 1,
+    },
+    {
+      code: `${CLIENT}export { createClient } from "@/lib/supabase/server";`,
+      errors: 1,
+    },
+    {
+      code: `${CLIENT}const mod = import("@/lib/supabase/server");`,
+      errors: 1,
+    },
+    {
+      code: `${CLIENT}const mod = import(\`@/lib/supabase/server\`);`,
+      errors: 1,
+    },
+    {
+      code: `${CLIENT}const mod = require("@/lib/supabase/server");`,
+      errors: 1,
+    },
     { code: `${CLIENT}import { cookies } from "next/headers";`, errors: 1 },
     { code: `${CLIENT}import "server-only";`, errors: 1 },
-    { code: `${CLIENT}import { type A, createClient } from "@/lib/supabase/server";`, errors: 1 },
-    { code: `${CLIENT}import { type SupabaseClient } from "@/lib/supabase/server";`, errors: 1 },
-    { code: `${CLIENT}const key = process.env.SUPABASE_SECRET_KEY;`, errors: 1 },
-    { code: `${CLIENT}const key = process.env["SUPABASE_SECRET_KEY"];`, errors: 1 },
-    { code: `${CLIENT}const { SUPABASE_SECRET_KEY } = process.env;`, errors: 1 },
-    { code: `'use strict';\n'use client';\nconst k = process.env.SECRET;`, errors: 1 },
+    {
+      code: `${CLIENT}import { type A, createClient } from "@/lib/supabase/server";`,
+      errors: 1,
+    },
+    {
+      code: `${CLIENT}import { type SupabaseClient } from "@/lib/supabase/server";`,
+      errors: 1,
+    },
+    {
+      code: `${CLIENT}const key = process.env.SUPABASE_SECRET_KEY;`,
+      errors: 1,
+    },
+    {
+      code: `${CLIENT}const key = process.env["SUPABASE_SECRET_KEY"];`,
+      errors: 1,
+    },
+    {
+      code: `${CLIENT}const { SUPABASE_SECRET_KEY } = process.env;`,
+      errors: 1,
+    },
+    {
+      code: `'use strict';\n'use client';\nconst k = process.env.SECRET;`,
+      errors: 1,
+    },
   ],
 });

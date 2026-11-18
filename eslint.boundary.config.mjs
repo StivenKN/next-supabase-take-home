@@ -4,7 +4,13 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import local from "./eslint-rules/index.mjs";
 
 export default defineConfig([
-  globalIgnores([".next/**", "out/**", "build/**", "supabase/.temp/**", ".claude/worktrees/**"]),
+  globalIgnores([
+    ".next/**",
+    "out/**",
+    "build/**",
+    "supabase/.temp/**",
+    ".claude/worktrees/**",
+  ]),
   {
     files: ["**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"],
     languageOptions: {

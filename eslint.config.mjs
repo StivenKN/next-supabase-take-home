@@ -38,7 +38,10 @@ export default defineConfig([
       "react-hooks/exhaustive-deps": "error",
 
       // Every suppression says why, and the server/client boundary cannot be switched off.
-      "@eslint-community/eslint-comments/require-description": ["error", { ignore: ["eslint-enable"] }],
+      "@eslint-community/eslint-comments/require-description": [
+        "error",
+        { ignore: ["eslint-enable"] },
+      ],
       // `/* eslint rule: "off" */` comments reconfigure rules silently; only disables (with a reason) are allowed.
       "@eslint-community/eslint-comments/no-use": [
         "error",
@@ -105,7 +108,10 @@ export default defineConfig([
       "@typescript-eslint/await-thenable": "error",
       "@typescript-eslint/ban-ts-comment": [
         "error",
-        { "ts-expect-error": "allow-with-description", minimumDescriptionLength: 10 },
+        {
+          "ts-expect-error": "allow-with-description",
+          minimumDescriptionLength: 10,
+        },
       ],
       // tsconfig sets verbatimModuleSyntax, so `import { type X }` still loads the module at runtime.
       "@typescript-eslint/consistent-type-imports": [
@@ -115,14 +121,21 @@ export default defineConfig([
       "@typescript-eslint/no-import-type-side-effects": "error",
       "@typescript-eslint/no-explicit-any": "error",
       // Supabase query builders are thenables: an un-awaited query never runs.
-      "@typescript-eslint/no-floating-promises": ["error", { checkThenables: true }],
+      "@typescript-eslint/no-floating-promises": [
+        "error",
+        { checkThenables: true },
+      ],
       "@typescript-eslint/no-misused-promises": [
         "error",
         { checksVoidReturn: { attributes: false } },
       ],
       "@typescript-eslint/no-unused-vars": [
         "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
       ],
       "@typescript-eslint/switch-exhaustiveness-check": [
         "error",

@@ -1,4 +1,8 @@
-const EFFECT_HOOKS = new Set(["useEffect", "useLayoutEffect", "useInsertionEffect"]);
+const EFFECT_HOOKS = new Set([
+  "useEffect",
+  "useLayoutEffect",
+  "useInsertionEffect",
+]);
 const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/;
 
 // Agents read this message and act on it, so it walks the alternatives before the way out.
@@ -46,7 +50,9 @@ const rule = {
         for (const specifier of node.specifiers) {
           if (
             specifier.type === "ImportSpecifier" &&
-            EFFECT_HOOKS.has(specifier.imported.name ?? specifier.imported.value)
+            EFFECT_HOOKS.has(
+              specifier.imported.name ?? specifier.imported.value,
+            )
           ) {
             effectNames.add(specifier.local.name);
           }
