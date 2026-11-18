@@ -7,7 +7,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 
-import { ID_HEADER, NO_ROWS_TEXT, ROUTE, TABLE, columnFor, urlFor } from "./app.ts";
+import { HEADERS, ID_HEADER, NO_ROWS_TEXT, ROUTE, TABLE, columnFor, urlFor } from "./app.ts";
 import { CASES, type Case } from "./cases.ts";
 import {
   baselineHolds,
@@ -132,8 +132,12 @@ type Fetched = { status: number; html: string; ms: number };
 
 const TIMEOUT_MS = 30_000;
 
-async function get(path: string, retry = true): Promise<Fetched> {
-  const started = performance.now();
+/** `started` carries over to a retry, so its time counts the failed attempt. */
+async function get(
+  path: string,
+  retry = true,
+  started = performance.now(),
+): Promise<Fetched> {
   try {
     const response = await fetch(baseUrl + path, {
       redirect: "follow",
@@ -150,7 +154,7 @@ async function get(path: string, retry = true): Promise<Fetched> {
     // the app, so one retry. HTTP errors are never retried.
     const code = (error as { cause?: { code?: string } }).cause?.code;
     if (retry && (code === "ECONNRESET" || code === "UND_ERR_SOCKET")) {
-      return get(path, false);
+      return get(path, false, started);
     }
     const cause = (error as { cause?: { code?: string; message?: string } }).cause;
     throw new Error(
@@ -278,12 +282,20 @@ async function runCase(
       if (!table || table.ids.length === 0) {
         return { pass: false, detail: `${ROUTE} shows no data table` };
       }
-      const problem = compareCells(table, csvById, c.columns);
+      const missing = c.columns.filter((column) => !HEADERS[column]);
+      if (missing.length > 0) {
+        throw new Error(`app.ts HEADERS has no header for ${missing.join(", ")}`);
+      }
+      const problem = compareCells(
+        table,
+        csvById,
+        Object.fromEntries(c.columns.map((column) => [column, HEADERS[column]])),
+      );
       return problem
         ? { pass: false, detail: problem }
         : {
             pass: true,
-            detail: `${table.ids.length} rows show their ${c.columns.join(", ")}`,
+            detail: `${table.ids.length} rows show their ${c.columns.join(", ")} in the right columns`,
           };
     }
 
@@ -324,6 +336,17 @@ async function runScale(
         before > csv.length
           ? `found ${before} rows, expected ${csv.length}. If an earlier --scale run was stopped, remove its copies: delete from ${TABLE} where ${columnFor("ID")} > ${csv.length}`
           : `needs the ${csv.length} CSV rows loaded first, found ${before}`,
+    };
+  }
+  // Cleanup deletes every ID above the CSV's, so first make sure the table
+  // holds exactly the CSV's IDs. Otherwise touch nothing.
+  const originals = Number(
+    sql(`select count(distinct ${columnFor("ID")}) from ${TABLE} where ${columnFor("ID")} between 1 and ${csv.length}`),
+  );
+  if (originals !== csv.length) {
+    return {
+      pass: false,
+      detail: `the table's IDs are not exactly 1 to ${csv.length}, so the scale copy would not be safe to remove; nothing changed`,
     };
   }
   const [schema, table] = TABLE.split(".");

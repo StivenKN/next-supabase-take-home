@@ -65,9 +65,10 @@ export const CASES: Case[] = [
   {
     id: "page/row-values",
     source: `${PART_2}, "displays the loaded data in a table"`,
-    what: "Each row on the first page shows its gender, country, occupation, sleep quality, stress level, and health issues from the CSV.",
+    what: "Each row on the first page shows its age, gender, country, occupation, sleep quality, stress level, and health issues from the CSV, each in its own column.",
     kind: "values",
     columns: [
+      "Age",
       "Gender",
       "Country",
       "Occupation",

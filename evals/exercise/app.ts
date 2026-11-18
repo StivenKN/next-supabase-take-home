@@ -1,4 +1,4 @@
-import type { Filter } from "./oracle.ts";
+import type { CsvColumn, Filter } from "./oracle.ts";
 
 /**
  * How the evals reach the app. This is the only file that knows the table
@@ -22,6 +22,20 @@ export const ROUTE = "/";
  * screen readers, such as "ID, sorted lowest first".
  */
 export const ID_HEADER = /^ID\b/;
+
+/**
+ * The header of the column that shows each CSV column, for the ones
+ * page/row-values compares. Headers may go on with screen-reader text.
+ */
+export const HEADERS: Partial<Record<CsvColumn, RegExp>> = {
+  Age: /^Age\b/,
+  Gender: /^Gender\b/,
+  Country: /^Country\b/,
+  Occupation: /^Occupation\b/,
+  Sleep_Quality: /^Sleep quality\b/,
+  Stress_Level: /^Stress\b/,
+  Health_Issues: /^Health issues\b/,
+};
 
 /**
  * Visible text that tells a person a page has no rows: either nothing

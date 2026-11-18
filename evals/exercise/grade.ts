@@ -85,23 +85,30 @@ export function judgePage(
 }
 
 /**
- * Null when every shown row has a cell reading exactly the CSV's value for
- * each of `columns`. Catches a table that shows the right IDs with wrong or
- * missing data. It expects the CSV's own words ("None", "Good"), so an app
- * that relabels them needs a matching change here.
+ * Null when every shown row reads exactly the CSV's value in each of
+ * `columns`, in that column: `headers` says which header belongs to which
+ * CSV column. Catches a table that shows the right IDs with wrong, missing,
+ * or swapped data. It expects the CSV's own words ("None", "Good"), so an
+ * app that relabels them needs a matching change here.
  */
 export function compareCells(
-  table: Pick<PageTable, "ids" | "cells">,
+  table: Pick<PageTable, "headers" | "ids" | "cells">,
   csvById: Map<number, CsvRow>,
-  columns: readonly CsvColumn[],
+  headers: Partial<Record<CsvColumn, RegExp>>,
 ): string | null {
-  for (const [i, id] of table.ids.entries()) {
+  const index = new Map<CsvColumn, number>();
+  for (const [column, pattern] of Object.entries(headers) as [CsvColumn, RegExp][]) {
+    const i = table.headers.findIndex((header) => pattern.test(header));
+    if (i === -1) return `no column header matches ${pattern} (${column})`;
+    index.set(column, i);
+  }
+  for (const [r, id] of table.ids.entries()) {
     const row = csvById.get(id);
     if (!row) return `ID ${id} is not in the CSV`;
-    const cells = table.cells[i] ?? [];
-    for (const column of columns) {
-      if (!cells.includes(row[column])) {
-        return `ID ${id} has no cell reading "${row[column]}" (${column}); its cells: ${cells.join(" | ")}`;
+    const cells = table.cells[r] ?? [];
+    for (const [column, i] of index) {
+      if (cells[i] !== row[column]) {
+        return `ID ${id} ${column}: CSV "${row[column]}", page "${cells[i] ?? ""}"`;
       }
     }
   }

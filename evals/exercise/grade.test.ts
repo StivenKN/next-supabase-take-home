@@ -128,6 +128,11 @@ describe("readPage", () => {
     expect(readTable(html, /^ID$/)?.ids).toEqual([4, 9]);
   });
 
+  it("skips hidden rows inside a visible table", () => {
+    const html = `<table>${header}<tbody><tr><td>3</td><td>UK</td></tr><tr hidden><td>4</td><td>UK</td></tr></tbody></table>`;
+    expect(readTable(html, /^ID$/)?.ids).toEqual([3]);
+  });
+
   it("ignores hidden tables and prefers the table with rows over a placeholder", () => {
     const placeholder = `<table>${header}<tbody><tr><td><span class="skeleton"></span></td><td></td></tr></tbody></table>`;
     const hidden = `<table hidden>${header}<tbody><tr><td>1</td><td>UK</td></tr><tr><td>2</td><td>UK</td></tr></tbody></table>`;
@@ -142,17 +147,33 @@ describe("readPage", () => {
 });
 
 describe("compareCells", () => {
-  const columns = ["Gender", "Country"] as const;
+  const headers = { Gender: /^Gender/, Country: /^Country/, Occupation: /^Occupation/ };
   const row1 = byId.get(1)!;
+  const table = (cells: string[]) => ({
+    headers: ["ID", "Gender", "Country, sorted lowest first", "Occupation"],
+    ids: [1],
+    cells: [cells],
+  });
 
-  it("passes rows that show their CSV values and names the first that does not", () => {
-    const shown = { ids: [1], cells: [["1", row1.Gender, row1.Country, "7.5"]] };
-    expect(compareCells(shown, byId, columns)).toBeNull();
-    const wrong = { ids: [1], cells: [["1", row1.Gender, "Atlantis"]] };
-    expect(compareCells(wrong, byId, columns)).toMatch(
-      new RegExp(`ID 1 has no cell reading "${row1.Country}" \\(Country\\)`),
+  it("passes rows that show their CSV values in their own columns", () => {
+    expect(
+      compareCells(table(["1", row1.Gender, row1.Country, row1.Occupation]), byId, headers),
+    ).toBeNull();
+  });
+
+  it("fails a wrong, missing, or swapped value and names it", () => {
+    expect(compareCells(table(["1", row1.Gender, "Atlantis", row1.Occupation]), byId, headers)).toBe(
+      `ID 1 Country: CSV "${row1.Country}", page "Atlantis"`,
     );
-    expect(compareCells({ ids: [1], cells: [["1"]] }, byId, columns)).toMatch(/Gender/);
+    expect(compareCells(table(["1"]), byId, headers)).toMatch(/Gender: CSV .*, page ""/);
+    // Country and Occupation swapped: each value is on the row, in the wrong column.
+    expect(
+      compareCells(table(["1", row1.Gender, row1.Occupation, row1.Country]), byId, headers),
+    ).toMatch(/Country/);
+  });
+
+  it("fails when a column has no header", () => {
+    expect(compareCells(table(["1"]), byId, { Age: /^Age/ })).toMatch(/no column header/);
   });
 });
 

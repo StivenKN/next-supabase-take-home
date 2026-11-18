@@ -60,6 +60,7 @@ export function readPage(html: string, idHeader: RegExp): Page {
       const cells: string[][] = [];
       for (const body of element.tBodies) {
         for (const row of body.rows) {
+          if (row.closest("[hidden]")) continue;
           const texts = [...row.cells].map((cell) => clean(cell.textContent));
           const id = texts[idColumn] ?? "";
           // IDs may be printed with thousands separators ("1,234").

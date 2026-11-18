@@ -5,7 +5,7 @@ Checks the app against the exercise in the [root README](../../README.md). The e
 | Cases      | What passes                                                                                                 |
 | ---------- | ----------------------------------------------------------------------------------------------------------- |
 | `data/*`   | The table holds the 10,000 CSV rows, with the same value in every column.                                  |
-| `page/*`   | For each filter, the page shows exactly the matching rows in ID order, and the page after the last shows no rows, which proves the total. `page/row-values` checks that rows show their CSV values. |
+| `page/*`   | For each filter, the page shows exactly the matching rows in ID order, and the page after the last shows no rows, which proves the total. `page/row-values` checks that rows show their CSV values, each under its own header (`HEADERS` in `app.ts`). |
 | `input/*`  | A hostile filter value matches nothing, and a page past the end (right after the last, or far past it) says it has no rows. Neither changes data. |
 | `scale/*`  | `page-weight`: the page sends one page of rows, not the dataset. `million-rows` (only with `--scale`): at 1,000,000 rows, pages stay correct and answer in under 2 seconds. |
 
@@ -32,7 +32,7 @@ pnpm evals:exercise --out evals/runs/local --scale --baseline evals/exercise/bas
 
 ## When the app changes
 
-`app.ts` is the only file that knows the app: table name, route, URL format for filters and pages, the ID column's header, and the message shown when there are no rows. If the app renames one of those, update `app.ts`, not the cases. It builds URLs itself on purpose, instead of importing the app's URL code, so a bug there fails a case instead of being shared.
+`app.ts` is the only file that knows the app: table name, route, URL format for filters and pages, the ID column's header, the headers of the columns `page/row-values` compares, and the message shown when there are no rows. If the app renames one of those, update `app.ts`, not the cases. It builds URLs itself on purpose, instead of importing the app's URL code, so a bug there fails a case instead of being shared.
 
 ## Add a case
 
