@@ -127,7 +127,23 @@ describe("readPage", () => {
         ["1", "South Korea"],
         ["1,234", "Brazil"],
       ],
+      unreadable: [],
     });
+  });
+
+  it("keeps a full row whose ID is not a number, so it can fail", () => {
+    const html = `<table>${header}<tbody>
+      <tr><td>1</td><td>Brazil</td></tr>
+      <tr><td>n/a</td><td>Japan</td></tr>
+      <tr><td></td><td></td></tr>
+      <tr><td colspan="2">Loading more</td></tr>
+    </tbody></table>`;
+    const page = readPage(html, /^ID$/);
+    expect(page.table?.ids).toEqual([1]);
+    expect(page.table?.unreadable).toEqual(["n/a"]);
+    expect(judgePage(page, [1], /No one matches/)).toMatch(
+      /1 rows whose ID is not a number \(first: "n\/a"\)/,
+    );
   });
 
   it("reads rows React streamed in after the table shell", () => {
@@ -216,6 +232,7 @@ describe("judgePage", () => {
     headers: ["ID"],
     ids,
     cells: ids.map((id) => [String(id)]),
+    unreadable: [],
   });
 
   it("passes the expected rows and explains anything else", () => {

@@ -28,7 +28,7 @@ pnpm evals:exercise --out evals/runs/local --scale --baseline evals/exercise/bas
 
 ## How the page is read
 
-`page.ts` loads the server's HTML into jsdom and runs its inline scripts, so rows that React streams in after the table shell land where a browser puts them. Then it finds the visible table with an `ID` column and reads the IDs. When no rows are expected, the page must also show a message saying so; an error page or a stuck loading state does not count. A filter is checked page by page: results of up to three pages are walked in full; larger ones check pages 1, 2, and the last, and the pages in between are not read. Then the page after the last must show no rows, which catches unexpected rows after the last expected page. The total the page displays (such as "456 of 10,000") is not read.
+`page.ts` loads the server's HTML into jsdom and runs its inline scripts, so rows that React streams in after the table shell land where a browser puts them. Then it finds the visible table with an `ID` column and reads the IDs; a full row whose ID is text other than a number fails the case. Stylesheets are not loaded, so only the `hidden` attribute (which React uses for streamed sections) hides text; text hidden by CSS alone still counts as shown. When no rows are expected, the page must also show a message saying so; an error page or a stuck loading state does not count. A filter is checked page by page: results of up to three pages are walked in full; larger ones check pages 1, 2, and the last, and the pages in between are not read. Then the page after the last must show no rows, which catches unexpected rows after the last expected page. The total the page displays (such as "456 of 10,000") is not read.
 
 ## When the app changes
 

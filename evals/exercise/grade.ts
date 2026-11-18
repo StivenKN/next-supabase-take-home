@@ -73,6 +73,10 @@ export function judgePage(
   noRowsText: RegExp,
   emptyTable: "enough" | "needs-message" = "needs-message",
 ): string | null {
+  const unreadable = page.table?.unreadable ?? [];
+  if (unreadable.length > 0) {
+    return `shows ${unreadable.length} rows whose ID is not a number (first: "${unreadable[0]}")`;
+  }
   const got = page.table?.ids ?? [];
   if (want.length === 0 && got.length === 0) {
     if (noRowsText.test(page.text)) return null;

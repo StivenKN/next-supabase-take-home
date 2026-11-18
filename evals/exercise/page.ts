@@ -14,6 +14,11 @@ export type PageTable = {
   ids: number[];
   /** The text of each cell in those rows, in the same order as `ids`. */
   cells: string[][];
+  /**
+   * ID cells of full rows that hold text but not a number. A placeholder row
+   * has an empty ID cell, and a message row spans the columns.
+   */
+  unreadable: string[];
 };
 
 export type Page = {
@@ -65,6 +70,7 @@ export function readPage(html: string, idHeader: RegExp): Page {
 
       const ids: number[] = [];
       const cells: string[][] = [];
+      const unreadable: string[] = [];
       for (const body of element.tBodies) {
         for (const row of body.rows) {
           if (row.closest("[hidden]")) continue;
@@ -74,11 +80,13 @@ export function readPage(html: string, idHeader: RegExp): Page {
           if (/^#?\d[\d,. ]*$/.test(id)) {
             ids.push(Number(id.replace(/\D/g, "")));
             cells.push(texts);
+          } else if (id !== "" && texts.length === headers.length) {
+            unreadable.push(id);
           }
         }
       }
       if (table === null || ids.length > table.ids.length) {
-        table = { headers, ids, cells };
+        table = { headers, ids, cells, unreadable };
       }
     }
 
