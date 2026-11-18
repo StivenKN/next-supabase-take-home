@@ -1,2 +1,4 @@
-onlyBuiltDependencies:
-  - supabase
+allowBuilds:
+  supabase: true
+  sharp: false
+  unrs-resolver: false
