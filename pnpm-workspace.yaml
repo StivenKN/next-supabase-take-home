@@ -2,4 +2,6 @@ allowBuilds:
   supabase: true
   sharp: false
   unrs-resolver: false
+  # Its postinstall only installs git hooks, which the `prepare` script already does.
+  simple-git-hooks: false
   tsc-rs: false
