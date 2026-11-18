@@ -5,16 +5,19 @@
     "pnpm": ">=10"
   },
   "scripts": {
+    "bootstrap": "bash scripts/bootstrap.sh",
     "dev": "concurrently -n supabase,next -c cyan,magenta \"pnpm dev:supabase\" \"pnpm dev:next\"",
     "dev:next": "next dev",
     "dev:supabase": "supabase start",
     "setup:env": "bash scripts/setup-env.sh",
+    "db:reset": "supabase db reset",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "check": "pnpm lint && pnpm typecheck && pnpm test:run"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.1",
