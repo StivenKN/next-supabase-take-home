@@ -5,8 +5,8 @@ Checks the app against the exercise in the [root README](../../README.md). The e
 | Cases      | What passes                                                                                                 |
 | ---------- | ----------------------------------------------------------------------------------------------------------- |
 | `data/*`   | The table holds the 10,000 CSV rows, with the same value in every column.                                  |
-| `page/*`   | For each filter, the page shows exactly the matching rows in ID order, and the page after the last says it has no rows, which proves the total. `page/row-values` checks that rows show their CSV values. |
-| `input/*`  | A hostile filter value matches nothing, and a page far past the end says it has no rows. Neither changes data. |
+| `page/*`   | For each filter, the page shows exactly the matching rows in ID order, and the page after the last shows no rows, which proves the total. `page/row-values` checks that rows show their CSV values. |
+| `input/*`  | A hostile filter value matches nothing, and a page past the end (right after the last, or far past it) says it has no rows. Neither changes data. |
 | `scale/*`  | `page-weight`: the page sends one page of rows, not the dataset. `million-rows` (only with `--scale`): at 1,000,000 rows, pages stay correct and answer in under 2 seconds. |
 
 ## Run

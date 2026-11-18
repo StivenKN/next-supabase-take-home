@@ -100,7 +100,7 @@ describe("cases", () => {
   });
 });
 
-describe("readTable", () => {
+describe("readPage", () => {
   const header = '<thead><tr><th><button>ID<!-- --> <svg></svg></button></th><th>Country</th></tr></thead>';
 
   it("reads IDs from React's server HTML", () => {
@@ -172,6 +172,13 @@ describe("judgePage", () => {
     expect(judgePage({ table: null, text: "Something went wrong" }, [], noRows)).toMatch(/no message/);
     expect(judgePage({ table: table([]), text: "Loading" }, [], noRows)).toMatch(/no message/);
     expect(judgePage({ table: table([5]), text: "No one matches" }, [], noRows)).toMatch(/unexpected IDs 5/);
+  });
+
+  it("accepts an empty table past the end only when told to", () => {
+    const empty = { table: table([]), text: "Rows 10,001 to 10,000" };
+    expect(judgePage(empty, [], noRows, "enough")).toBeNull();
+    expect(judgePage(empty, [], noRows)).toMatch(/no message/);
+    expect(judgePage({ table: null, text: "Something went wrong" }, [], noRows, "enough")).toMatch(/no message/);
   });
 
   it("reads only visible text", () => {

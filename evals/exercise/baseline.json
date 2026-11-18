@@ -16,6 +16,7 @@
   "page/no-match": "fail",
   "input/hostile-country": "fail",
   "input/page-past-end": "fail",
+  "input/page-just-past-end": "fail",
   "scale/page-weight": "fail",
   "scale/million-rows": "fail"
 }

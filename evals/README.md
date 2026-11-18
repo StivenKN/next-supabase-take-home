@@ -41,3 +41,4 @@ Every eval has the same layout, so a new one is easy to write and an old one is 
 - Prefer fixing the app over loosening a case. If a case changes, it must still fail on the code it was written against.
 - Add controls: cases where the right answer is the ordinary one (no filter, every row). They catch a fix that overcorrects.
 - Thresholds come from what a person notices (a page that takes seconds), not from what the current code happens to measure.
+- A case that flips between pass and fail without a code change is flaky. Widen its threshold or fix the cause; don't keep rewriting the baseline.

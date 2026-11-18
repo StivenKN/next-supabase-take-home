@@ -63,17 +63,22 @@ export function compareIds(
  * Null when the page shows what a person should see: exactly the expected
  * rows, or, when none are expected, no rows and a message saying so. A page
  * with no table and no message (an error page, a stuck loading state) fails.
+ *
+ * `table: "enough"` relaxes the empty case: an empty data table also passes.
+ * Filter cases use it for the page after the last, where the point is to
+ * prove the total, and the wording of an out-of-range page has its own case.
  */
 export function judgePage(
   page: Page,
   want: number[],
   noRowsText: RegExp,
+  emptyTable: "enough" | "needs-message" = "needs-message",
 ): string | null {
   const got = page.table?.ids ?? [];
   if (want.length === 0 && got.length === 0) {
-    return noRowsText.test(page.text)
-      ? null
-      : `shows no rows and no message matching ${noRowsText}`;
+    if (noRowsText.test(page.text)) return null;
+    if (emptyTable === "enough" && page.table) return null;
+    return `shows no rows and no message matching ${noRowsText}`;
   }
   if (!page.table) return "shows no table with an ID column";
   return compareIds(got, want);
@@ -82,7 +87,8 @@ export function judgePage(
 /**
  * Null when every shown row has a cell reading exactly the CSV's value for
  * each of `columns`. Catches a table that shows the right IDs with wrong or
- * missing data.
+ * missing data. It expects the CSV's own words ("None", "Good"), so an app
+ * that relabels them needs a matching change here.
  */
 export function compareCells(
   table: Pick<PageTable, "ids" | "cells">,

@@ -177,6 +177,15 @@ export const CASES: Case[] = [
   },
 
   {
+    id: "input/page-just-past-end",
+    source: PART_2,
+    what: "The page right after the last one (page 201 of 200) says it has no rows, instead of showing an empty table.",
+    kind: "input",
+    filter: {},
+    page: 201,
+  },
+
+  {
     id: "scale/page-weight",
     source: `${PART_3}, "naive UI patterns"`,
     what: "The page sends one page of rows (at most 200, under 1 MB), not the dataset.",

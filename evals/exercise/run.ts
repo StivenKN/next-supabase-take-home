@@ -173,14 +173,20 @@ async function detectPageSize(): Promise<number | string> {
  * Requests each page and judges it. `problem` is null when every page shows
  * what it should. `slowestMs` is the slowest response, reading the page
  * excluded.
+ *
+ * `pastEnd` is how strict to be on the page right after the last one. The
+ * filter cases only use it to prove the total, so an empty table is enough
+ * there ("enough"). The input cases check its wording ("needs-message").
  */
 async function checkPages(
   filter: Filter,
   expected: number[],
   pageSize: number,
   pages = pagesToCheck(expected.length, pageSize),
+  pastEnd: "enough" | "needs-message" = "enough",
 ): Promise<{ problem: string | null; slowestMs: number }> {
   let slowestMs = 0;
+  const last = Math.ceil(expected.length / pageSize);
   for (const page of pages) {
     const url = urlFor(filter, page);
     const response = await get(url);
@@ -192,6 +198,7 @@ async function checkPages(
       readPage(response.html, ID_HEADER),
       expectedOnPage(expected, page, pageSize),
       NO_ROWS_TEXT,
+      last > 0 && page === last + 1 ? pastEnd : "needs-message",
     );
     if (problem) return { problem: `${url}: ${problem}`, slowestMs };
   }
@@ -256,6 +263,7 @@ async function runCase(
         expectedIds(csv, c.filter),
         size,
         [c.page],
+        "needs-message",
       );
       if (problem) return { pass: false, detail: problem };
       if (checksum() !== before) {
@@ -342,14 +350,14 @@ async function runScale(
   process.once("SIGINT", onSignal);
   process.once("SIGTERM", onSignal);
 
-  const grew = performance.now();
-  sql(
-    `insert into ${TABLE} (${columns.join(", ")}) overriding system value select ${select} from ${TABLE}, generate_series(1, ${c.copies - 1}) as k where ${id} <= ${csv.length}`,
-    `analyze ${TABLE}`,
-  );
-  const growSeconds = ((performance.now() - grew) / 1000).toFixed(1);
-
   try {
+    const grew = performance.now();
+    sql(
+      `insert into ${TABLE} (${columns.join(", ")}) overriding system value select ${select} from ${TABLE}, generate_series(1, ${c.copies - 1}) as k where ${id} <= ${csv.length}`,
+      `analyze ${TABLE}`,
+    );
+    const growSeconds = ((performance.now() - grew) / 1000).toFixed(1);
+
     const total = rowCount();
     if (total !== csv.length * c.copies) {
       return { pass: false, detail: `grew to ${total} rows, expected ${csv.length * c.copies}` };
