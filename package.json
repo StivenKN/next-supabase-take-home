@@ -17,7 +17,8 @@
     "test": "vitest",
     "test:run": "vitest run",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:run",
-    "prepare": "simple-git-hooks"
+    "prepare": "simple-git-hooks",
+    "evals:exercise": "node evals/exercise/run.ts"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.1",

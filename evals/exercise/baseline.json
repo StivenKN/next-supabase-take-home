@@ -1,0 +1,20 @@
+{
+  "data/row-count": "fail",
+  "data/round-trip": "fail",
+  "page/no-filter": "fail",
+  "page/country": "fail",
+  "page/country-with-space": "fail",
+  "page/countries": "fail",
+  "page/gender": "fail",
+  "page/sleep-quality": "fail",
+  "page/stress-level": "fail",
+  "page/age-inclusive": "fail",
+  "page/coffee-decimal-bounds": "fail",
+  "page/bmi-min-only": "fail",
+  "page/combined": "fail",
+  "page/no-match": "fail",
+  "input/hostile-country": "fail",
+  "input/page-past-end": "fail",
+  "scale/page-weight": "fail",
+  "scale/million-rows": "fail"
+}
