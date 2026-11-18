@@ -10,11 +10,11 @@ Next.js app with local [Supabase](https://supabase.com) development via Docker.
 
 Install the following before working on this repository:
 
-| Requirement | Version | Install |
-| --- | --- | --- |
-| [Node.js](https://nodejs.org/) | 24 or later | [nodejs.org/en/download](https://nodejs.org/en/download) |
+| Requirement                       | Version       | Install                                                           |
+| --------------------------------- | ------------- | ----------------------------------------------------------------- |
+| [Node.js](https://nodejs.org/)    | 24 or later   | [nodejs.org/en/download](https://nodejs.org/en/download)          |
 | [Docker](https://www.docker.com/) | Latest stable | [docs.docker.com/get-docker](https://docs.docker.com/get-docker/) |
-| [pnpm](https://pnpm.io/) | 10 or later | [pnpm.io/installation](https://pnpm.io/installation) |
+| [pnpm](https://pnpm.io/)          | 10 or later   | [pnpm.io/installation](https://pnpm.io/installation)              |
 
 Docker must be running before you start the development server. Supabase runs locally in Docker containers.
 
@@ -84,10 +84,11 @@ pnpm dev:next       # Start Next.js only
 pnpm bootstrap   # Check prerequisites, install, start Supabase, write .env.local
 pnpm setup:env   # Start Supabase and write .env.local
 pnpm db:reset    # Recreate the local database from migrations and seed.sql
-pnpm check       # Lint, typecheck and unit tests
+pnpm check       # Format check, lint, typecheck and unit tests
 pnpm build       # Production build
 pnpm start       # Run production server
 pnpm lint        # Run ESLint
+pnpm format      # Format files with Oxfmt
 pnpm test        # Run tests in watch mode
 pnpm test:run    # Run tests once
 ```
@@ -96,12 +97,12 @@ pnpm test:run    # Run tests once
 
 [`t3.json`](t3.json) declares this repository's actions for [T3 Code](https://t3.codes). Import them once per machine: open **Settings → Projects**, pick this project, and under Actions use **Import scripts** once for each action. You can also import them from a thread's actions menu, under **From t3.json**. Importing copies them into your T3 Code settings and skips any action whose name or command you already have, so when an action in `t3.json` changes, edit it in T3 Code's settings, or delete it and import it again.
 
-| Action | Command | What it does |
-| --- | --- | --- |
-| Setup | `pnpm run --if-present bootstrap --continue-without-supabase` | Runs when T3 Code creates a worktree. The agent waits until it finishes, so it starts with dependencies installed, Supabase running and `.env.local` written. If Docker is not running or Supabase fails to start, Setup still installs dependencies and lets the agent start; fix the problem and run `pnpm setup:env`. On branches without `bootstrap`, Setup skips Supabase and `.env.local` and still lets the agent start, after pnpm 11+ has installed dependencies. |
-| Dev | `pnpm dev` | Starts Supabase and Next.js. Open the app from the thread details card, which lists the ports this thread's terminals started. Stops when the thread settles. |
-| Check | `pnpm check` | Lint, typecheck and unit tests, the same steps as CI's first job. |
-| Test | `pnpm test` | Vitest in watch mode. Stops when the thread settles. |
+| Action | Command                                                       | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------ | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Setup  | `pnpm run --if-present bootstrap --continue-without-supabase` | Runs when T3 Code creates a worktree. The agent waits until it finishes, so it starts with dependencies installed, Supabase running and `.env.local` written. If Docker is not running or Supabase fails to start, Setup still installs dependencies and lets the agent start; fix the problem and run `pnpm setup:env`. On branches without `bootstrap`, Setup skips Supabase and `.env.local` and still lets the agent start, after pnpm 11+ has installed dependencies. |
+| Dev    | `pnpm dev`                                                    | Starts Supabase and Next.js. Open the app from the thread details card, which lists the ports this thread's terminals started. Stops when the thread settles.                                                                                                                                                                                                                                                                                                              |
+| Check  | `pnpm check`                                                  | Format check, lint, typecheck and unit tests, the same steps as CI's first job.                                                                                                                                                                                                                                                                                                                                                                                            |
+| Test   | `pnpm test`                                                   | Vitest in watch mode. Stops when the thread settles.                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 Every worktree uses the same local Supabase stack, because `project_id` and the ports in `supabase/config.toml` are fixed. A worktree's migrations reach the database only when you run `pnpm db:reset` from that worktree, and that replaces the data every other worktree sees, which is why it is not a one-click action. Next.js serves on port 3000, or on the next free port when another worktree's dev server already holds it, so use the port T3 Code lists for this thread rather than assuming 3000.
 
@@ -115,24 +116,24 @@ After completing setup, build a feature that loads the coffee health dataset int
 
 The file `data/synthetic_coffee_health_10000.csv` contains **10,000 rows** of synthetic health and coffee consumption data. Each row has these columns:
 
-| Column | Type |
-| --- | --- |
-| `ID` | integer |
-| `Age` | integer |
-| `Gender` | text |
-| `Country` | text |
-| `Coffee_Intake` | decimal |
-| `Caffeine_mg` | decimal |
-| `Sleep_Hours` | decimal |
-| `Sleep_Quality` | text |
-| `BMI` | decimal |
-| `Heart_Rate` | integer |
-| `Stress_Level` | text |
-| `Physical_Activity_Hours` | decimal |
-| `Health_Issues` | text |
-| `Occupation` | text |
-| `Smoking` | integer (0 or 1) |
-| `Alcohol_Consumption` | integer (0 or 1) |
+| Column                    | Type             |
+| ------------------------- | ---------------- |
+| `ID`                      | integer          |
+| `Age`                     | integer          |
+| `Gender`                  | text             |
+| `Country`                 | text             |
+| `Coffee_Intake`           | decimal          |
+| `Caffeine_mg`             | decimal          |
+| `Sleep_Hours`             | decimal          |
+| `Sleep_Quality`           | text             |
+| `BMI`                     | decimal          |
+| `Heart_Rate`              | integer          |
+| `Stress_Level`            | text             |
+| `Physical_Activity_Hours` | decimal          |
+| `Health_Issues`           | text             |
+| `Occupation`              | text             |
+| `Smoking`                 | integer (0 or 1) |
+| `Alcohol_Consumption`     | integer (0 or 1) |
 
 ### Part 1 — Load the data into Supabase
 
@@ -183,11 +184,11 @@ During review, we will assume you understand your submission and can explain you
 
 Instala lo siguiente antes de trabajar en este repositorio:
 
-| Requisito | Versión | Instalación |
-| --- | --- | --- |
-| [Node.js](https://nodejs.org/) | 24 o superior | [nodejs.org/en/download](https://nodejs.org/en/download) |
+| Requisito                         | Versión                | Instalación                                                       |
+| --------------------------------- | ---------------------- | ----------------------------------------------------------------- |
+| [Node.js](https://nodejs.org/)    | 24 o superior          | [nodejs.org/en/download](https://nodejs.org/en/download)          |
 | [Docker](https://www.docker.com/) | Última versión estable | [docs.docker.com/get-docker](https://docs.docker.com/get-docker/) |
-| [pnpm](https://pnpm.io/) | 10 o superior | [pnpm.io/installation](https://pnpm.io/installation) |
+| [pnpm](https://pnpm.io/)          | 10 o superior          | [pnpm.io/installation](https://pnpm.io/installation)              |
 
 Docker debe estar en ejecución antes de iniciar el servidor de desarrollo. Supabase se ejecuta localmente en contenedores Docker.
 
@@ -257,10 +258,11 @@ pnpm dev:next       # Iniciar solo Next.js
 pnpm bootstrap   # Comprobar requisitos, instalar, iniciar Supabase y escribir .env.local
 pnpm setup:env   # Iniciar Supabase y escribir .env.local
 pnpm db:reset    # Recrear la base de datos local desde las migraciones y seed.sql
-pnpm check       # Lint, typecheck y pruebas unitarias
+pnpm check       # Verificación de formato, lint, typecheck y pruebas unitarias
 pnpm build       # Compilación de producción
 pnpm start       # Servidor de producción
 pnpm lint        # Ejecutar ESLint
+pnpm format      # Formatear archivos con Oxfmt
 pnpm test        # Ejecutar pruebas en modo watch
 pnpm test:run    # Ejecutar pruebas una vez
 ```
@@ -269,12 +271,12 @@ pnpm test:run    # Ejecutar pruebas una vez
 
 [`t3.json`](t3.json) declara las acciones de este repositorio para [T3 Code](https://t3.codes). Impórtalas una vez por máquina: abre **Settings → Projects**, elige este proyecto y en la sección Actions usa **Import scripts** una vez por cada acción. También puedes importarlas desde el menú de acciones de un hilo, en **From t3.json**. Importar las copia a tu configuración de T3 Code y omite cualquier acción cuyo nombre o comando ya tengas, así que cuando cambie una acción en `t3.json`, edítala en la configuración de T3 Code, o bórrala e impórtala de nuevo.
 
-| Acción | Comando | Qué hace |
-| --- | --- | --- |
-| Setup | `pnpm run --if-present bootstrap --continue-without-supabase` | Se ejecuta cuando T3 Code crea un worktree. El agente espera a que termine, así que empieza con las dependencias instaladas, Supabase en ejecución y `.env.local` escrito. Si Docker no está en ejecución o Supabase no arranca, Setup igualmente instala las dependencias y deja que el agente empiece; corrige el problema y ejecuta `pnpm setup:env`. En ramas sin `bootstrap`, Setup omite Supabase y `.env.local` y deja que el agente empiece igualmente, después de que pnpm 11+ instale las dependencias. |
-| Dev | `pnpm dev` | Inicia Supabase y Next.js. Abre la app desde la tarjeta de detalles del hilo, que lista los puertos que abrieron las terminales de este hilo. Se detiene cuando el hilo se cierra (settle). |
-| Check | `pnpm check` | Lint, typecheck y pruebas unitarias, los mismos pasos que el primer job de CI. |
-| Test | `pnpm test` | Vitest en modo watch. Se detiene cuando el hilo se cierra (settle). |
+| Acción | Comando                                                       | Qué hace                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------ | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Setup  | `pnpm run --if-present bootstrap --continue-without-supabase` | Se ejecuta cuando T3 Code crea un worktree. El agente espera a que termine, así que empieza con las dependencias instaladas, Supabase en ejecución y `.env.local` escrito. Si Docker no está en ejecución o Supabase no arranca, Setup igualmente instala las dependencias y deja que el agente empiece; corrige el problema y ejecuta `pnpm setup:env`. En ramas sin `bootstrap`, Setup omite Supabase y `.env.local` y deja que el agente empiece igualmente, después de que pnpm 11+ instale las dependencias. |
+| Dev    | `pnpm dev`                                                    | Inicia Supabase y Next.js. Abre la app desde la tarjeta de detalles del hilo, que lista los puertos que abrieron las terminales de este hilo. Se detiene cuando el hilo se cierra (settle).                                                                                                                                                                                                                                                                                                                       |
+| Check  | `pnpm check`                                                  | Verificación de formato, lint, typecheck y pruebas unitarias, los mismos pasos que el primer job de CI.                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Test   | `pnpm test`                                                   | Vitest en modo watch. Se detiene cuando el hilo se cierra (settle).                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
 Todos los worktrees usan el mismo stack local de Supabase, porque `project_id` y los puertos de `supabase/config.toml` son fijos. Las migraciones de un worktree llegan a la base de datos solo cuando ejecutas `pnpm db:reset` desde ese worktree, y eso reemplaza los datos que ven todos los demás worktrees; por eso no es una acción de un clic. Next.js usa el puerto 3000, o el siguiente puerto libre si el servidor de desarrollo de otro worktree ya lo ocupa, así que usa el puerto que T3 Code lista para este hilo en lugar de asumir 3000.
 
@@ -288,24 +290,24 @@ Después de completar la configuración, construye una funcionalidad que cargue 
 
 El archivo `data/synthetic_coffee_health_10000.csv` contiene **10,000 filas** de datos sintéticos sobre salud y consumo de café. Cada fila tiene estas columnas:
 
-| Columna | Tipo |
-| --- | --- |
-| `ID` | entero |
-| `Age` | entero |
-| `Gender` | texto |
-| `Country` | texto |
-| `Coffee_Intake` | decimal |
-| `Caffeine_mg` | decimal |
-| `Sleep_Hours` | decimal |
-| `Sleep_Quality` | texto |
-| `BMI` | decimal |
-| `Heart_Rate` | entero |
-| `Stress_Level` | texto |
-| `Physical_Activity_Hours` | decimal |
-| `Health_Issues` | texto |
-| `Occupation` | texto |
-| `Smoking` | entero (0 o 1) |
-| `Alcohol_Consumption` | entero (0 o 1) |
+| Columna                   | Tipo           |
+| ------------------------- | -------------- |
+| `ID`                      | entero         |
+| `Age`                     | entero         |
+| `Gender`                  | texto          |
+| `Country`                 | texto          |
+| `Coffee_Intake`           | decimal        |
+| `Caffeine_mg`             | decimal        |
+| `Sleep_Hours`             | decimal        |
+| `Sleep_Quality`           | texto          |
+| `BMI`                     | decimal        |
+| `Heart_Rate`              | entero         |
+| `Stress_Level`            | texto          |
+| `Physical_Activity_Hours` | decimal        |
+| `Health_Issues`           | texto          |
+| `Occupation`              | texto          |
+| `Smoking`                 | entero (0 o 1) |
+| `Alcohol_Consumption`     | entero (0 o 1) |
 
 ### Parte 1 — Cargar los datos en Supabase
 
