@@ -2,9 +2,9 @@
 
 An eval checks the running app the way a person uses it: real Postgres, real HTTP, the HTML the server sends. Unit tests check functions. Evals check that the README's requirements hold end to end.
 
-| Eval                     | Measures                                                                                               |
-| ------------------------ | ------------------------------------------------------------------------------------------------------ |
-| [exercise](exercise/)    | Whether the app meets the exercise in the root README: data loaded, filters correct, pages that scale. |
+| Eval                  | Measures                                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------------------------ |
+| [exercise](exercise/) | Whether the app meets the exercise in the root README: data loaded, filters correct, pages that scale. |
 
 ## Run an eval
 

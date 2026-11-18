@@ -16,10 +16,16 @@ import {
   sameValue,
   type Result,
 } from "./grade.ts";
-import { expectedIds, expectedIdsScaled, parseCsv, type CsvRow } from "./oracle.ts";
+import {
+  expectedIds,
+  expectedIdsScaled,
+  parseCsv,
+  type CsvRow,
+} from "./oracle.ts";
 import { readPage } from "./page.ts";
 
-const readTable = (html: string, idHeader: RegExp) => readPage(html, idHeader).table;
+const readTable = (html: string, idHeader: RegExp) =>
+  readPage(html, idHeader).table;
 
 const csv = parseCsv(
   readFileSync(
@@ -51,7 +57,9 @@ describe("oracle", () => {
       expect(["France", "Germany"]).toContain(row.Country);
       expect(row.Gender).toBe("Female");
     }
-    const either = expectedIds(csv, { choices: { country: ["France", "Germany"] } });
+    const either = expectedIds(csv, {
+      choices: { country: ["France", "Germany"] },
+    });
     const france = expectedIds(csv, { choices: { country: ["France"] } });
     const germany = expectedIds(csv, { choices: { country: ["Germany"] } });
     expect(either).toHaveLength(france.length + germany.length);
@@ -102,7 +110,8 @@ describe("cases", () => {
 });
 
 describe("readPage", () => {
-  const header = '<thead><tr><th><button>ID<!-- --> <svg></svg></button></th><th>Country</th></tr></thead>';
+  const header =
+    "<thead><tr><th><button>ID<!-- --> <svg></svg></button></th><th>Country</th></tr></thead>";
 
   it("reads IDs from React's server HTML", () => {
     const html = `<table>${header}<tbody>
@@ -141,13 +150,19 @@ describe("readPage", () => {
   });
 
   it("returns null when no table has an ID column", () => {
-    expect(readTable("<table><tr><th>Name</th></tr></table>", /^ID$/)).toBeNull();
+    expect(
+      readTable("<table><tr><th>Name</th></tr></table>", /^ID$/),
+    ).toBeNull();
     expect(readTable("<main>Welcome</main>", /^ID$/)).toBeNull();
   });
 });
 
 describe("compareCells", () => {
-  const headers = { Gender: /^Gender/, Country: /^Country/, Occupation: /^Occupation/ };
+  const headers = {
+    Gender: /^Gender/,
+    Country: /^Country/,
+    Occupation: /^Occupation/,
+  };
   const row1 = byId.get(1)!;
   const table = (cells: string[]) => ({
     headers: ["ID", "Gender", "Country, sorted lowest first", "Occupation"],
@@ -157,50 +172,97 @@ describe("compareCells", () => {
 
   it("passes rows that show their CSV values in their own columns", () => {
     expect(
-      compareCells(table(["1", row1.Gender, row1.Country, row1.Occupation]), byId, headers),
+      compareCells(
+        table(["1", row1.Gender, row1.Country, row1.Occupation]),
+        byId,
+        headers,
+      ),
     ).toBeNull();
   });
 
   it("fails a wrong, missing, or swapped value and names it", () => {
-    expect(compareCells(table(["1", row1.Gender, "Atlantis", row1.Occupation]), byId, headers)).toBe(
-      `ID 1 Country: CSV "${row1.Country}", page "Atlantis"`,
+    expect(
+      compareCells(
+        table(["1", row1.Gender, "Atlantis", row1.Occupation]),
+        byId,
+        headers,
+      ),
+    ).toBe(`ID 1 Country: CSV "${row1.Country}", page "Atlantis"`);
+    expect(compareCells(table(["1"]), byId, headers)).toMatch(
+      /Gender: CSV .*, page ""/,
     );
-    expect(compareCells(table(["1"]), byId, headers)).toMatch(/Gender: CSV .*, page ""/);
     // Country and Occupation swapped: each value is on the row, in the wrong column.
     expect(
-      compareCells(table(["1", row1.Gender, row1.Occupation, row1.Country]), byId, headers),
+      compareCells(
+        table(["1", row1.Gender, row1.Occupation, row1.Country]),
+        byId,
+        headers,
+      ),
     ).toMatch(/Country/);
   });
 
   it("fails when a column has no header", () => {
-    expect(compareCells(table(["1"]), byId, { Age: /^Age/ })).toMatch(/no column header/);
+    expect(compareCells(table(["1"]), byId, { Age: /^Age/ })).toMatch(
+      /no column header/,
+    );
   });
 });
 
 describe("judgePage", () => {
   const noRows = /No one matches/;
-  const table = (ids: number[]) => ({ headers: ["ID"], ids, cells: ids.map((id) => [String(id)]) });
+  const table = (ids: number[]) => ({
+    headers: ["ID"],
+    ids,
+    cells: ids.map((id) => [String(id)]),
+  });
 
   it("passes the expected rows and explains anything else", () => {
-    expect(judgePage({ table: table([1, 2]), text: "" }, [1, 2], noRows)).toBeNull();
-    expect(judgePage({ table: table([1, 3]), text: "" }, [1, 2], noRows)).toMatch(/missing IDs 2/);
-    expect(judgePage({ table: null, text: "Oops" }, [1], noRows)).toMatch(/no table/);
+    expect(
+      judgePage({ table: table([1, 2]), text: "" }, [1, 2], noRows),
+    ).toBeNull();
+    expect(
+      judgePage({ table: table([1, 3]), text: "" }, [1, 2], noRows),
+    ).toMatch(/missing IDs 2/);
+    expect(judgePage({ table: null, text: "Oops" }, [1], noRows)).toMatch(
+      /no table/,
+    );
   });
 
   it("passes an empty result only when the page says so", () => {
-    expect(judgePage({ table: null, text: "No one matches these filters" }, [], noRows)).toBeNull();
-    expect(judgePage({ table: table([]), text: "No one matches" }, [], noRows)).toBeNull();
+    expect(
+      judgePage(
+        { table: null, text: "No one matches these filters" },
+        [],
+        noRows,
+      ),
+    ).toBeNull();
+    expect(
+      judgePage({ table: table([]), text: "No one matches" }, [], noRows),
+    ).toBeNull();
     // An error page or a loading state that never finished is not "no rows".
-    expect(judgePage({ table: null, text: "Something went wrong" }, [], noRows)).toMatch(/no message/);
-    expect(judgePage({ table: table([]), text: "Loading" }, [], noRows)).toMatch(/no message/);
-    expect(judgePage({ table: table([5]), text: "No one matches" }, [], noRows)).toMatch(/unexpected IDs 5/);
+    expect(
+      judgePage({ table: null, text: "Something went wrong" }, [], noRows),
+    ).toMatch(/no message/);
+    expect(
+      judgePage({ table: table([]), text: "Loading" }, [], noRows),
+    ).toMatch(/no message/);
+    expect(
+      judgePage({ table: table([5]), text: "No one matches" }, [], noRows),
+    ).toMatch(/unexpected IDs 5/);
   });
 
   it("accepts an empty table past the end only when told to", () => {
     const empty = { table: table([]), text: "Rows 10,001 to 10,000" };
     expect(judgePage(empty, [], noRows, "enough")).toBeNull();
     expect(judgePage(empty, [], noRows)).toMatch(/no message/);
-    expect(judgePage({ table: null, text: "Something went wrong" }, [], noRows, "enough")).toMatch(/no message/);
+    expect(
+      judgePage(
+        { table: null, text: "Something went wrong" },
+        [],
+        noRows,
+        "enough",
+      ),
+    ).toMatch(/no message/);
   });
 
   it("reads only visible text", () => {
@@ -273,7 +335,9 @@ describe("round trip", () => {
     expect(compareRows(rows, changed, lower)).toEqual([
       `ID 5 BMI: CSV ${rows[4]!.BMI}, stored 99`,
     ]);
-    expect(compareRows(rows, changed.slice(1), lower)[0]).toBe("ID 1 is missing");
+    expect(compareRows(rows, changed.slice(1), lower)[0]).toBe(
+      "ID 1 is missing",
+    );
   });
 });
 
@@ -289,7 +353,12 @@ describe("baseline", () => {
   it("flags regressions, new passes, and cases it does not know", () => {
     const diff = diffBaseline(
       { a: "pass", b: "fail", c: "pass", gone: "pass" },
-      [result("a", "fail"), result("b", "pass"), result("c", "skip"), result("d", "pass")],
+      [
+        result("a", "fail"),
+        result("b", "pass"),
+        result("c", "skip"),
+        result("d", "pass"),
+      ],
       ids,
     );
     expect(diff).toEqual({
@@ -311,7 +380,10 @@ describe("baseline", () => {
   });
 
   it("rejects a baseline that would silently stop enforcing a case", () => {
-    expect(parseBaseline('{"a":"pass","b":"fail"}')).toEqual({ a: "pass", b: "fail" });
+    expect(parseBaseline('{"a":"pass","b":"fail"}')).toEqual({
+      a: "pass",
+      b: "fail",
+    });
     expect(parseBaseline('{"a":"passed"}')).toMatch(/"passed" for a/);
     expect(parseBaseline("[]")).toMatch(/object/);
     expect(parseBaseline("<<<<<<< HEAD")).toMatch(/not valid JSON/);
@@ -320,7 +392,13 @@ describe("baseline", () => {
   it("never turns a pass into a fail unless asked", () => {
     const before = { a: "pass", b: "fail" } as const;
     const results = [result("a", "fail"), result("b", "pass")];
-    expect(nextBaseline(before, results, ["a", "b"])).toEqual({ a: "pass", b: "pass" });
-    expect(nextBaseline(before, results, ["a", "b"], true)).toEqual({ a: "fail", b: "pass" });
+    expect(nextBaseline(before, results, ["a", "b"])).toEqual({
+      a: "pass",
+      b: "pass",
+    });
+    expect(nextBaseline(before, results, ["a", "b"], true)).toEqual({
+      a: "fail",
+      b: "pass",
+    });
   });
 });

@@ -2,12 +2,12 @@
 
 Checks the app against the exercise in the [root README](../../README.md). The expected answer for every case is computed from `data/synthetic_coffee_health_10000.csv`, not from the app.
 
-| Cases      | What passes                                                                                                 |
-| ---------- | ----------------------------------------------------------------------------------------------------------- |
-| `data/*`   | The table holds the 10,000 CSV rows, with the same value in every column.                                  |
-| `page/*`   | For each filter, the page shows exactly the matching rows in ID order, and the page after the last shows no rows, which proves the total. `page/row-values` checks that rows show their CSV values, each under its own header (`HEADERS` in `app.ts`). |
-| `input/*`  | A hostile filter value matches nothing, and a page past the end (right after the last, or far past it) says it has no rows. Neither changes data. |
-| `scale/*`  | `page-weight`: the page sends one page of rows, not the dataset. `million-rows` (only with `--scale`): at 1,000,000 rows, pages stay correct and answer in under 2 seconds. |
+| Cases     | What passes                                                                                                                                                                                                                                            |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `data/*`  | The table holds the 10,000 CSV rows, with the same value in every column.                                                                                                                                                                              |
+| `page/*`  | For each filter, the page shows exactly the matching rows in ID order, and the page after the last shows no rows, which proves the total. `page/row-values` checks that rows show their CSV values, each under its own header (`HEADERS` in `app.ts`). |
+| `input/*` | A hostile filter value matches nothing, and a page past the end (right after the last, or far past it) says it has no rows. Neither changes data.                                                                                                      |
+| `scale/*` | `page-weight`: the page sends one page of rows, not the dataset. `million-rows` (only with `--scale`): at 1,000,000 rows, pages stay correct and answer in under 2 seconds.                                                                            |
 
 ## Run
 

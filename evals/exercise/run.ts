@@ -1,13 +1,17 @@
-/**
- * Runs the exercise cases against the running app and the local database.
- * See README.md next to this file.
- */
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 
-import { HEADERS, ID_HEADER, NO_ROWS_TEXT, ROUTE, TABLE, columnFor, urlFor } from "./app.ts";
+import {
+  HEADERS,
+  ID_HEADER,
+  NO_ROWS_TEXT,
+  ROUTE,
+  TABLE,
+  columnFor,
+  urlFor,
+} from "./app.ts";
 import { CASES, type Case } from "./cases.ts";
 import {
   baselineHolds,
@@ -60,7 +64,9 @@ const readBaseline = (path: string, missingOk: boolean): Baseline => {
     text = readFileSync(path, "utf8");
   } catch (error) {
     if (missingOk && (error as { code?: string }).code === "ENOENT") return {};
-    console.error(`Cannot read the baseline ${path}: ${(error as Error).message}`);
+    console.error(
+      `Cannot read the baseline ${path}: ${(error as Error).message}`,
+    );
     process.exit(2);
   }
   const parsed = parseBaseline(text);
@@ -77,7 +83,6 @@ const previousBaseline = args["write-baseline"]
   ? readBaseline(args["write-baseline"], true)
   : undefined;
 
-// ---------------------------------------------------------------------------
 // Database access goes through psql inside the Supabase database container,
 // so the only thing a machine needs is the Docker it already runs Supabase on.
 
@@ -90,7 +95,6 @@ function dbContainer(): string {
 }
 const container = dbContainer();
 
-/** Runs SQL and returns psql's unaligned output. Throws with psql's error. */
 function sql(...statements: string[]): string {
   const commands = statements.flatMap((statement) => ["-c", statement]);
   try {
@@ -119,14 +123,10 @@ function sql(...statements: string[]): string {
 
 const rowCount = () => Number(sql(`select count(*) from ${TABLE}`));
 
-/** A fingerprint of every row, to tell whether anything changed. */
 const checksum = () =>
   sql(
     `select count(*) || ':' || coalesce(md5(string_agg(t::text, ',' order by t.${columnFor("ID")})), '') from ${TABLE} t`,
   );
-
-// ---------------------------------------------------------------------------
-// The app
 
 type Fetched = { status: number; html: string; ms: number };
 
@@ -156,7 +156,8 @@ async function get(
     if (retry && (code === "ECONNRESET" || code === "UND_ERR_SOCKET")) {
       return get(path, false, started);
     }
-    const cause = (error as { cause?: { code?: string; message?: string } }).cause;
+    const cause = (error as { cause?: { code?: string; message?: string } })
+      .cause;
     throw new Error(
       `GET ${baseUrl}${path} failed: ${cause?.code ?? cause?.message ?? (error as Error).message}`,
     );
@@ -170,7 +171,8 @@ async function detectPageSize(): Promise<number | string> {
     if (page.status !== 200) return `GET ${ROUTE} answered ${page.status}`;
     const { table } = readPage(page.html, ID_HEADER);
     if (!table) return `GET ${ROUTE} has no table with an ${ID_HEADER} column`;
-    if (table.ids.length === 0) return `GET ${ROUTE} shows a table with no rows`;
+    if (table.ids.length === 0)
+      return `GET ${ROUTE} shows a table with no rows`;
     return table.ids.length;
   } catch (error) {
     return `GET ${baseUrl}${ROUTE} failed: ${(error as Error).message}`;
@@ -212,9 +214,6 @@ async function checkPages(
   }
   return { problem: null, slowestMs };
 }
-
-// ---------------------------------------------------------------------------
-// Cases
 
 type Check = { pass: boolean; detail: string };
 
@@ -267,13 +266,25 @@ async function runCase(
       const size = needPage();
       const expected = expectedIds(csv, c.filter);
       const page =
-        c.page === "after-last" ? Math.ceil(expected.length / size) + 1 : c.page;
+        c.page === "after-last"
+          ? Math.ceil(expected.length / size) + 1
+          : c.page;
       const url = urlFor(c.filter, page);
       const before = checksum();
-      const { problem } = await checkPages(c.filter, expected, size, [page], "needs-message");
+      const { problem } = await checkPages(
+        c.filter,
+        expected,
+        size,
+        [page],
+        "needs-message",
+      );
       if (problem) return { pass: false, detail: problem };
-      if (checksum() !== before) return { pass: false, detail: `${url} changed the data` };
-      return { pass: true, detail: `${url} shows the expected rows; data unchanged` };
+      if (checksum() !== before)
+        return { pass: false, detail: `${url} changed the data` };
+      return {
+        pass: true,
+        detail: `${url} shows the expected rows; data unchanged`,
+      };
     }
 
     case "values": {
@@ -284,12 +295,16 @@ async function runCase(
       }
       const missing = c.columns.filter((column) => !HEADERS[column]);
       if (missing.length > 0) {
-        throw new Error(`app.ts HEADERS has no header for ${missing.join(", ")}`);
+        throw new Error(
+          `app.ts HEADERS has no header for ${missing.join(", ")}`,
+        );
       }
       const problem = compareCells(
         table,
         csvById,
-        Object.fromEntries(c.columns.map((column) => [column, HEADERS[column]])),
+        Object.fromEntries(
+          c.columns.map((column) => [column, HEADERS[column]]),
+        ),
       );
       return problem
         ? { pass: false, detail: problem }
@@ -319,10 +334,6 @@ async function runCase(
   }
 }
 
-/**
- * Copies the dataset `copies - 1` more times with shifted IDs, checks and
- * times the page, then deletes the copies again.
- */
 async function runScale(
   c: Extract<Case, { kind: "scale" }>,
   csv: CsvRow[],
@@ -341,7 +352,9 @@ async function runScale(
   // Cleanup deletes every ID above the CSV's, so first make sure the table
   // holds exactly the CSV's IDs. Otherwise touch nothing.
   const originals = Number(
-    sql(`select count(distinct ${columnFor("ID")}) from ${TABLE} where ${columnFor("ID")} between 1 and ${csv.length}`),
+    sql(
+      `select count(distinct ${columnFor("ID")}) from ${TABLE} where ${columnFor("ID")} between 1 and ${csv.length}`,
+    ),
   );
   if (originals !== csv.length) {
     return {
@@ -364,7 +377,8 @@ async function runScale(
   // copy carries a marker, and cleanup cancels it and waits for it to end
   // before deleting.
   const marker = "/* evals:scale-copy */";
-  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  const sleep = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
   const removeCopies = async () => {
     const marked = `from pg_stat_activity where pid <> pg_backend_pid() and query like '${marker}%'`;
     // Wait until no marked query is seen twice in a row, 200 ms apart: a
@@ -377,7 +391,10 @@ async function runScale(
       }
       await sleep(200);
     }
-    sql(`delete from ${TABLE} where ${id} > ${csv.length}`, `vacuum analyze ${TABLE}`);
+    sql(
+      `delete from ${TABLE} where ${id} > ${csv.length}`,
+      `vacuum analyze ${TABLE}`,
+    );
   };
   // A Ctrl-C while the copy is in place removes it, then exits. If cleanup
   // is already running, the handler only records the stop, and cleanup
@@ -423,7 +440,9 @@ async function runScale(
       filter,
       page: Math.max(
         1,
-        Math.ceil(expectedIdsScaled(csv, filter, c.copies).length / pageSize / 2),
+        Math.ceil(
+          expectedIdsScaled(csv, filter, c.copies).length / pageSize / 2,
+        ),
       ),
     }));
     for (const { filter, page } of checks) {
@@ -433,13 +452,21 @@ async function runScale(
       // timed, not the evals reading the page.
       const times: number[] = [];
       for (let i = 0; i < 3; i++) {
-        const { problem, slowestMs } = await checkPages(filter, expected, pageSize, [page]);
+        const { problem, slowestMs } = await checkPages(
+          filter,
+          expected,
+          pageSize,
+          [page],
+        );
         times.push(slowestMs);
-        if (problem) return { pass: false, detail: `at ${total} rows, ${problem}` };
+        if (problem)
+          return { pass: false, detail: `at ${total} rows, ${problem}` };
       }
       const worst = Math.max(...times);
       slowest = Math.max(slowest, worst);
-      timings.push(`${urlFor(filter, page)} ${times.map((t) => Math.round(t)).join("/")} ms`);
+      timings.push(
+        `${urlFor(filter, page)} ${times.map((t) => Math.round(t)).join("/")} ms`,
+      );
     }
     return {
       pass: slowest <= c.maxMs,
@@ -463,9 +490,6 @@ async function runScale(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Run
-
 const csv = parseCsv(
   readFileSync(join(root, "data/synthetic_coffee_health_10000.csv"), "utf8"),
 );
@@ -473,7 +497,9 @@ const csvById = new Map(csv.map((row) => [Number(row.ID), row]));
 const selected = args.case
   ? CASES.filter((c) => args.case!.includes(c.id))
   : CASES;
-const unknownCases = (args.case ?? []).filter((id) => !CASES.some((c) => c.id === id));
+const unknownCases = (args.case ?? []).filter(
+  (id) => !CASES.some((c) => c.id === id),
+);
 if (unknownCases.length > 0) {
   console.error(`Unknown case: ${unknownCases.join(", ")}`);
   process.exit(2);
@@ -510,7 +536,10 @@ for (const c of selected) {
   try {
     check = await runCase(c, csv, pageSize);
   } catch (error) {
-    check = { pass: false, detail: (error as Error).message.split("\n")[0] ?? "" };
+    check = {
+      pass: false,
+      detail: (error as Error).message.split("\n")[0] ?? "",
+    };
   }
   const result: Result = {
     id: c.id,
@@ -521,9 +550,6 @@ for (const c of selected) {
   results.push(result);
   console.log(`${result.status.padEnd(4)}  ${c.id}  ${result.detail}`);
 }
-
-// ---------------------------------------------------------------------------
-// Report
 
 const caseIds = CASES.map((c) => c.id);
 
@@ -566,16 +592,24 @@ if (args.baseline) {
     const list = (ids: string[]) => ids.map((id) => `\`${id}\``).join(", ");
     const update = `update the baseline: \`pnpm evals:exercise --out evals/runs/local --scale --write-baseline ${args.baseline}\` against your running app, and commit the file. Editing the JSON by hand is fine too.`;
     if (diff.regressed.length > 0) {
-      lines.push(`- **Regressed** (passed before, fail now): ${list(diff.regressed)}. Fix the app. The detail column above says what the page showed.`);
+      lines.push(
+        `- **Regressed** (passed before, fail now): ${list(diff.regressed)}. Fix the app. The detail column above says what the page showed.`,
+      );
     }
     if (diff.improved.length > 0) {
-      lines.push(`- **Now passing**: ${list(diff.improved)}. Lock them in so they cannot quietly fail later: ${update}`);
+      lines.push(
+        `- **Now passing**: ${list(diff.improved)}. Lock them in so they cannot quietly fail later: ${update}`,
+      );
     }
     if (diff.unlisted.length > 0) {
-      lines.push(`- **Not in the baseline**: ${list(diff.unlisted)}. Add them: ${update}`);
+      lines.push(
+        `- **Not in the baseline**: ${list(diff.unlisted)}. Add them: ${update}`,
+      );
     }
     if (diff.unknown.length > 0) {
-      lines.push(`- **In the baseline but no such case**: ${list(diff.unknown)}. Remove them: ${update}`);
+      lines.push(
+        `- **In the baseline but no such case**: ${list(diff.unknown)}. Remove them: ${update}`,
+      );
     }
   }
 }

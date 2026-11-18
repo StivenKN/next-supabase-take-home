@@ -6,7 +6,6 @@ export type Status = "pass" | "fail" | "skip";
 export type Result = {
   id: string;
   status: Status;
-  /** One line a person can act on. */
   detail: string;
   ms: number;
 };
@@ -39,10 +38,7 @@ const sample = (ids: number[]) =>
     : ids.join(", ");
 
 /** Null when the page shows exactly the expected IDs in order. */
-export function compareIds(
-  got: number[],
-  want: number[],
-): string | null {
+export function compareIds(got: number[], want: number[]): string | null {
   if (got.length === want.length && got.every((id, i) => id === want[i])) {
     return null;
   }
@@ -50,7 +46,9 @@ export function compareIds(
   const shown = new Set(got);
   const extra = got.filter((id) => !wanted.has(id));
   const missing = want.filter((id) => !shown.has(id));
-  const parts: string[] = [`showed ${got.length} rows, expected ${want.length}`];
+  const parts: string[] = [
+    `showed ${got.length} rows, expected ${want.length}`,
+  ];
   if (extra.length > 0) parts.push(`unexpected IDs ${sample(extra)}`);
   if (missing.length > 0) parts.push(`missing IDs ${sample(missing)}`);
   if (extra.length === 0 && missing.length === 0) {
@@ -97,7 +95,10 @@ export function compareCells(
   headers: Partial<Record<CsvColumn, RegExp>>,
 ): string | null {
   const index = new Map<CsvColumn, number>();
-  for (const [column, pattern] of Object.entries(headers) as [CsvColumn, RegExp][]) {
+  for (const [column, pattern] of Object.entries(headers) as [
+    CsvColumn,
+    RegExp,
+  ][]) {
     const i = table.headers.findIndex((header) => pattern.test(header));
     if (i === -1) return `no column header matches ${pattern} (${column})`;
     index.set(column, i);
@@ -124,15 +125,13 @@ export function sameValue(csv: string, stored: unknown): boolean {
   if (typeof stored === "boolean") return csv === (stored ? "1" : "0");
   if (typeof stored === "number") return Number(csv) === stored;
   if (typeof stored === "string") {
-    return stored === csv || (/^-?\d/.test(csv) && Number(stored) === Number(csv));
+    return (
+      stored === csv || (/^-?\d/.test(csv) && Number(stored) === Number(csv))
+    );
   }
   return false;
 }
 
-/**
- * Compares every CSV row with the stored row of the same ID. Returns one
- * line per problem, at most `limit` of them.
- */
 export function compareRows(
   csv: CsvRow[],
   stored: Record<string, unknown>[],

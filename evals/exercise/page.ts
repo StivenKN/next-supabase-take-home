@@ -11,14 +11,12 @@ import { JSDOM, VirtualConsole } from "jsdom";
 
 export type PageTable = {
   headers: string[];
-  /** The ID of each body row, top to bottom. */
   ids: number[];
   /** The text of each cell in those rows, in the same order as `ids`. */
   cells: string[][];
 };
 
 export type Page = {
-  /** The visible table with an ID column, or null when there is none. */
   table: PageTable | null;
   /** The text a person can see: no scripts, styles, or hidden elements. */
   text: string;
@@ -41,8 +39,15 @@ export function readPage(html: string, idHeader: RegExp): Page {
   // animation frame with $RV. Reveal them now instead of waiting. If React
   // renames these, the sections stay hidden: no table and no text, so every
   // case fails.
-  const react = dom.window as unknown as { $RB?: unknown[]; $RV?: (queue: unknown[]) => void };
-  if (Array.isArray(react.$RB) && react.$RB.length > 0 && typeof react.$RV === "function") {
+  const react = dom.window as unknown as {
+    $RB?: unknown[];
+    $RV?: (queue: unknown[]) => void;
+  };
+  if (
+    Array.isArray(react.$RB) &&
+    react.$RB.length > 0 &&
+    typeof react.$RV === "function"
+  ) {
     react.$RV(react.$RB);
   }
   try {
@@ -52,7 +57,9 @@ export function readPage(html: string, idHeader: RegExp): Page {
       if (element.closest("[hidden]")) continue;
       const headerRow = element.tHead?.rows[0] ?? element.rows[0];
       if (!headerRow) continue;
-      const headers = [...headerRow.cells].map((cell) => clean(cell.textContent));
+      const headers = [...headerRow.cells].map((cell) =>
+        clean(cell.textContent),
+      );
       const idColumn = headers.findIndex((header) => idHeader.test(header));
       if (idColumn === -1) continue;
 
@@ -76,7 +83,9 @@ export function readPage(html: string, idHeader: RegExp): Page {
     }
 
     const body = document.body.cloneNode(true) as HTMLElement;
-    for (const element of body.querySelectorAll("script, style, template, noscript, [hidden]")) {
+    for (const element of body.querySelectorAll(
+      "script, style, template, noscript, [hidden]",
+    )) {
       element.remove();
     }
     return { table, text: clean(body.textContent) };

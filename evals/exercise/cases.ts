@@ -169,7 +169,7 @@ export const CASES: Case[] = [
     what: "Quotes and PostgREST syntax in a filter value match nothing and change no data.",
     kind: "input",
     filter: {
-      choices: { country: ["Brazil'),or(id.gt.0", "x\"; drop table--"] },
+      choices: { country: ["Brazil'),or(id.gt.0", 'x"; drop table--'] },
     },
     page: 1,
   },

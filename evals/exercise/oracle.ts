@@ -24,7 +24,6 @@ export const CSV_COLUMNS = [
 
 export type CsvColumn = (typeof CSV_COLUMNS)[number];
 
-/** One CSV row, values kept as the CSV spells them. */
 export type CsvRow = Record<CsvColumn, string>;
 
 /** The filters the README names as examples (Part 2). */

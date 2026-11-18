@@ -10,11 +10,9 @@ import type { CsvColumn, Filter } from "./oracle.ts";
  * failing case instead of being shared by both sides.
  */
 
-/** The table that holds the dataset. CSV headers map to lowercase columns. */
 export const TABLE = "public.coffee_health";
 export const columnFor = (csvHeader: string) => csvHeader.toLowerCase();
 
-/** The page that shows the table. */
 export const ROUTE = "/";
 
 /**
