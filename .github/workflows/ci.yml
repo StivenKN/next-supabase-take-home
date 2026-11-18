@@ -51,7 +51,10 @@ jobs:
       # Page the smoke test loads, and text that must be in its HTML. A 200
       # alone doesn't prove much: with cacheComponents the static shell is
       # sent before any query runs. Once the data table lands, point these at
-      # its route and at a value only real rows render.
+      # its route and at a single cell value from one row: not a label, a
+      # count, or anything a filter dropdown also shows. The match is against
+      # raw HTML, where React puts <!-- --> between adjacent JSX expressions
+      # and escapes & ' " < >.
       SMOKE_PATH: /
       SMOKE_EXPECT: Instructions (English)
     steps:
@@ -87,9 +90,10 @@ jobs:
             sleep 1
           done
           status=$(curl -sS --max-time 30 -o page.html -w '%{http_code}' "http://localhost:3000${SMOKE_PATH}" || true)
-          echo "GET ${SMOKE_PATH} -> ${status:-no response} ($(wc -c < page.html 2>/dev/null || echo 0) bytes)"
+          [ "${status:-000}" = 000 ] && status="no response"
+          echo "GET ${SMOKE_PATH} -> ${status} ($(wc -c < page.html 2>/dev/null || echo 0) bytes)"
           if [ "$status" != 200 ]; then
-            echo "::error::GET ${SMOKE_PATH} returned ${status:-no response}, expected 200"
+            echo "::error::GET ${SMOKE_PATH} returned ${status}, expected 200"
             exit 1
           fi
           if ! grep -qF "$SMOKE_EXPECT" page.html; then
