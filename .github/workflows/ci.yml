@@ -96,7 +96,7 @@ jobs:
             echo "::error::GET ${SMOKE_PATH} returned ${status}, expected 200"
             exit 1
           fi
-          if ! grep -qF "$SMOKE_EXPECT" page.html; then
+          if ! grep -qF -- "$SMOKE_EXPECT" page.html; then
             echo "::error::GET ${SMOKE_PATH} is missing the expected text: ${SMOKE_EXPECT}"
             exit 1
           fi
