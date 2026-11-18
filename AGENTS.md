@@ -57,9 +57,17 @@ The files in `supabase/schemas/` declare the schema. `pnpm db:reset` and the fir
 
 The database container does not mount the repo. A `COPY ... FROM '<path>'` statement in a migration or in `supabase/seed.sql` therefore cannot read the CSV in `data/`.
 
+## Formatting
+
+Oxfmt formats this repo. `.oxfmtrc.json` holds the settings, and `package.json` pins the Oxfmt version.
+
+- Run `pnpm format` before you commit. The command rewrites files in place. CI runs `pnpm format:check`, which fails on any file that Oxfmt would change.
+- Do not format files by hand or with another formatter.
+- Do not change `.oxfmtrc.json` or the Oxfmt version in unrelated work. Either change reformats files across the repo, and the other open branches then conflict.
+
 ## Verify before you push
 
-CI runs these checks on every pull request. Run them first. `pnpm check` runs `pnpm lint`, `pnpm typecheck`, and `pnpm test:run`.
+CI runs these checks on every pull request. Run them first. `pnpm check` runs `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, and `pnpm test:run`.
 
 ```bash
 pnpm check
