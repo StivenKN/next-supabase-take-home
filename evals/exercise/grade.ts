@@ -14,7 +14,7 @@ export type Result = {
  * The pages to request for a result of `total` rows. Small results are
  * walked in full. Large ones check the first two pages and the last; the
  * pages in between are not read. The page after the last must show no rows,
- * so a total that is too high or too low fails.
+ * which catches unexpected rows after the last expected page.
  */
 export function pagesToCheck(total: number, pageSize: number): number[] {
   if (total === 0) return [1];
@@ -64,7 +64,8 @@ export function compareIds(got: number[], want: number[]): string | null {
  *
  * `emptyTable: "enough"` relaxes the empty case: an empty data table also passes.
  * Filter cases use it for the page after the last, where the point is to
- * prove the total, and the wording of an out-of-range page has its own case.
+ * catch unexpected rows past the end, and the wording of an out-of-range page
+ * has its own case.
  */
 export function judgePage(
   page: Page,

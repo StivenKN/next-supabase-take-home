@@ -185,7 +185,7 @@ async function detectPageSize(): Promise<number | string> {
  * excluded.
  *
  * `pastEnd` is how strict to be on the page right after the last one. The
- * filter cases only use it to prove the total, so an empty table is enough
+ * filter cases only use it to catch rows past the end, so an empty table is enough
  * there ("enough"). The input cases check its wording ("needs-message").
  */
 async function checkPages(
