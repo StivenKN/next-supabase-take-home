@@ -406,6 +406,10 @@ async function runScale(
     stopped = true;
     try {
       await removeOnce();
+    } catch (error) {
+      console.error(
+        `Could not remove the scale copies: ${(error as Error).message}\nRemove them with: delete from ${TABLE} where ${id} > ${csv.length}`,
+      );
     } finally {
       process.exit(130);
     }
