@@ -16,6 +16,7 @@ continue_without_supabase=false
 for arg in "$@"; do
   case "$arg" in
     --continue-without-supabase) continue_without_supabase=true ;;
+    --) ;;
     *)
       echo "error: unknown option: $arg" >&2
       exit 2
@@ -48,18 +49,18 @@ pnpm install --frozen-lockfile
 
 docker_problem=""
 if ! command -v docker >/dev/null 2>&1; then
-  docker_problem="Docker is required for local Supabase: https://docs.docker.com/get-docker/"
+  docker_problem="Docker is not installed; local Supabase needs it (https://docs.docker.com/get-docker/)."
 elif ! docker info >/dev/null 2>&1; then
-  docker_problem="Docker is installed but not running."
+  docker_problem="Docker is installed but not reachable (is the daemon running, and can this user access it?)."
 fi
 
 if [[ -n "$docker_problem" ]]; then
   if [[ "$continue_without_supabase" == true ]]; then
     echo "warning: ${docker_problem} Dependencies are installed; Supabase and .env.local were skipped." >&2
-    echo "warning: Start Docker, then run pnpm setup:env." >&2
+    echo "warning: Fix that, then run pnpm setup:env." >&2
     exit 0
   fi
-  fail "${docker_problem} Start Docker, then run pnpm bootstrap again."
+  fail "${docker_problem} Fix that, then run pnpm bootstrap again."
 fi
 
 # Starts Supabase (a no-op if it is already running) and writes .env.local.
