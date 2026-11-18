@@ -383,7 +383,8 @@ async function runScale(
     const marked = `from pg_stat_activity where pid <> pg_backend_pid() and query like '${marker}%'`;
     // Wait until no marked query is seen twice in a row, 200 ms apart: a
     // Ctrl-C right at the start can land before psql has sent the copy.
-    for (let quiet = 0, i = 0; quiet < 2 && i < 50; i++) {
+    let quiet = 0;
+    for (let i = 0; quiet < 2 && i < 50; i++) {
       if (sql(`select count(*) ${marked}`) === "0") quiet++;
       else {
         quiet = 0;
@@ -395,17 +396,20 @@ async function runScale(
       `delete from ${TABLE} where ${id} > ${csv.length}`,
       `vacuum analyze ${TABLE}`,
     );
+    // The copy could still commit after this delete.
+    if (quiet < 2) throw new Error("the scale copy would not stop");
   };
   // A Ctrl-C and the normal end of the case share one cleanup, so whichever
   // comes second waits for it instead of moving on before the delete.
   let removing: Promise<void> | undefined;
   const removeOnce = () => (removing ??= removeCopies());
   let stopped = false;
-  const onSignal = async () => {
+  const stop = async () => {
     if (!stopped) console.error("\nStopped. Removing the scale copies first.");
     stopped = true;
     try {
       await removeOnce();
+      console.error("The scale copies are removed.");
     } catch (error) {
       console.error(
         `Could not remove the scale copies: ${(error as Error).message}\nRemove them with: delete from ${TABLE} where ${id} > ${csv.length}`,
@@ -414,6 +418,7 @@ async function runScale(
       process.exit(130);
     }
   };
+  const onSignal = () => void stop();
   process.on("SIGINT", onSignal);
   process.on("SIGTERM", onSignal);
 
@@ -547,7 +552,9 @@ for (const c of selected) {
     ms: Math.round(performance.now() - started),
   };
   results.push(result);
-  console.log(`${result.status.padEnd(4)}  ${c.id}  ${result.detail}`);
+  process.stdout.write(
+    `${result.status.padEnd(4)}  ${c.id}  ${result.detail}\n`,
+  );
 }
 
 const caseIds = CASES.map((c) => c.id);
@@ -627,7 +634,7 @@ if (args["write-baseline"]) {
   const accept = args["accept-regressions"];
   const next = nextBaseline(previous, results, caseIds, accept);
   writeFileSync(path, JSON.stringify(next, null, 2) + "\n");
-  console.log(`\nWrote ${path}`);
+  process.stdout.write(`\nWrote ${path}\n`);
   const kept = diffBaseline(previous, results, caseIds).regressed;
   if (kept.length > 0 && !accept) {
     console.error(
@@ -637,5 +644,5 @@ if (args["write-baseline"]) {
   }
 }
 
-console.log(`\n${summary}`);
+process.stdout.write(`\n${summary}`);
 process.exit(exitCode);

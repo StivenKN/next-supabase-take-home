@@ -97,11 +97,13 @@ describe("cases", () => {
 
   it("have a no-match case that matches nothing and others that match something", () => {
     expect(page("page/no-match")).toHaveLength(0);
-    for (const c of CASES) {
-      if (c.kind === "page" && c.id !== "page/no-match") {
-        expect(page(c.id).length, c.id).toBeGreaterThan(0);
-      }
-    }
+    const empty = CASES.filter(
+      (c) =>
+        c.kind === "page" &&
+        c.id !== "page/no-match" &&
+        page(c.id).length === 0,
+    ).map((c) => c.id);
+    expect(empty).toEqual([]);
   });
 
   it("include a filter with more than three pages, so the last-page check runs", () => {
