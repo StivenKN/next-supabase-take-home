@@ -108,6 +108,7 @@ ruleTester.run("no-server-code-in-client", noServerCodeInClient, {
     `${CLIENT}const url = process.env.NEXT_PUBLIC_SUPABASE_URL;`,
     `${CLIENT}const dev = process.env.NODE_ENV === "development";`,
     `${CLIENT}const { NEXT_PUBLIC_SUPABASE_URL } = process.env;`,
+    `${CLIENT}const { "NEXT_PUBLIC_SUPABASE_URL": url } = process.env;`,
     '"use strict";\nconst key = process.env.SUPABASE_SECRET_KEY;',
     'const a = 1;\n"use client";\nimport { createAdminClient } from "@/lib/supabase/server";',
     `${CLIENT}import type { SupabaseClient } from "@/lib/supabase/server";`,
@@ -172,6 +173,14 @@ ruleTester.run("no-server-code-in-client", noServerCodeInClient, {
     },
     {
       code: `${CLIENT}const { SUPABASE_SECRET_KEY } = process.env;`,
+      errors: 1,
+    },
+    {
+      code: `${CLIENT}const { "SUPABASE_SECRET_KEY": key } = process.env;`,
+      errors: 1,
+    },
+    {
+      code: `${CLIENT}const { ["SUPABASE_SECRET_KEY"]: key } = process.env;`,
       errors: 1,
     },
     {

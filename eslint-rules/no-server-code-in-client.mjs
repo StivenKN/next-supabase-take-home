@@ -126,13 +126,12 @@ const rule = {
         )
           return;
         for (const property of node.id.properties) {
-          if (
-            property.type === "Property" &&
-            !property.computed &&
-            property.key.type === "Identifier"
-          ) {
-            reportEnv(property, property.key.name);
-          }
+          if (property.type !== "Property") continue;
+          const name =
+            !property.computed && property.key.type === "Identifier"
+              ? property.key.name
+              : staticString(property.key);
+          if (name !== undefined) reportEnv(property, name);
         }
       },
     };
