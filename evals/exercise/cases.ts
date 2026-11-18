@@ -19,7 +19,12 @@ export type Case = { id: string; source: string; what: string } & (
   | { kind: "round-trip" }
   | { kind: "page"; filter: Filter }
   | { kind: "values"; columns: CsvColumn[] }
-  | { kind: "input"; filter: Filter; page: number }
+  | {
+      kind: "input";
+      filter: Filter;
+      /** A page number, or the page right after the last one. */
+      page: number | "after-last";
+    }
   | { kind: "weight"; maxRows: number; maxBytes: number }
   | {
       kind: "scale";
@@ -179,10 +184,10 @@ export const CASES: Case[] = [
   {
     id: "input/page-just-past-end",
     source: PART_2,
-    what: "The page right after the last one (page 201 of 200) says it has no rows, instead of showing an empty table.",
+    what: "The page right after the last one (page 201 of 200 at 50 rows a page) says it has no rows, instead of showing an empty table.",
     kind: "input",
     filter: {},
-    page: 201,
+    page: "after-last",
   },
 
   {

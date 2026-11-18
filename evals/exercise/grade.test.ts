@@ -12,6 +12,7 @@ import {
   judgePage,
   nextBaseline,
   pagesToCheck,
+  parseBaseline,
   sameValue,
   type Result,
 } from "./grade.ts";
@@ -286,6 +287,13 @@ describe("baseline", () => {
         ids,
       ),
     ).toEqual({ a: "fail", b: "pass", c: "pass", d: "fail" });
+  });
+
+  it("rejects a baseline that would silently stop enforcing a case", () => {
+    expect(parseBaseline('{"a":"pass","b":"fail"}')).toEqual({ a: "pass", b: "fail" });
+    expect(parseBaseline('{"a":"passed"}')).toMatch(/"passed" for a/);
+    expect(parseBaseline("[]")).toMatch(/object/);
+    expect(parseBaseline("<<<<<<< HEAD")).toMatch(/not valid JSON/);
   });
 
   it("never turns a pass into a fail unless asked", () => {

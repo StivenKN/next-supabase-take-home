@@ -18,6 +18,7 @@ import {
   judgePage,
   nextBaseline,
   pagesToCheck,
+  parseBaseline,
   type Baseline,
   type Result,
 } from "./grade.ts";
@@ -62,12 +63,12 @@ const readBaseline = (path: string, missingOk: boolean): Baseline => {
     console.error(`Cannot read the baseline ${path}: ${(error as Error).message}`);
     process.exit(2);
   }
-  try {
-    return JSON.parse(text) as Baseline;
-  } catch {
-    console.error(`The baseline ${path} is not valid JSON.`);
+  const parsed = parseBaseline(text);
+  if (typeof parsed === "string") {
+    console.error(`The baseline ${path} ${parsed}`);
     process.exit(2);
   }
+  return parsed;
 };
 
 // Read before running, so a wrong path fails fast.
@@ -257,22 +258,15 @@ async function runCase(
 
     case "input": {
       const size = needPage();
+      const expected = expectedIds(csv, c.filter);
+      const page =
+        c.page === "after-last" ? Math.ceil(expected.length / size) + 1 : c.page;
+      const url = urlFor(c.filter, page);
       const before = checksum();
-      const { problem } = await checkPages(
-        c.filter,
-        expectedIds(csv, c.filter),
-        size,
-        [c.page],
-        "needs-message",
-      );
+      const { problem } = await checkPages(c.filter, expected, size, [page], "needs-message");
       if (problem) return { pass: false, detail: problem };
-      if (checksum() !== before) {
-        return { pass: false, detail: `${urlFor(c.filter, c.page)} changed the data` };
-      }
-      return {
-        pass: true,
-        detail: `${urlFor(c.filter, c.page)} shows the expected rows; data unchanged`,
-      };
+      if (checksum() !== before) return { pass: false, detail: `${url} changed the data` };
+      return { pass: true, detail: `${url} shows the expected rows; data unchanged` };
     }
 
     case "values": {
@@ -344,6 +338,11 @@ async function runScale(
   // Ctrl-C must not leave a million rows behind.
   const onSignal = () => {
     console.error("\nStopped. Removing the scale copies first.");
+    // Stopping docker exec does not stop the query inside the container, so
+    // cancel the copy first, or it could commit after the delete.
+    sql(
+      `select pg_cancel_backend(pid) from pg_stat_activity where pid <> pg_backend_pid() and query like 'insert into ${TABLE} %'`,
+    );
     removeCopies();
     process.exit(130);
   };
@@ -365,11 +364,16 @@ async function runScale(
 
     const timings: string[] = [];
     let slowest = 0;
-    // Every filter's first page, plus a page from the middle of the table.
-    const checks: { filter: Filter; page: number }[] = [
-      ...c.filters.map((filter) => ({ filter, page: 1 })),
-      { filter: {}, page: Math.ceil(total / pageSize / 2) },
-    ];
+    // The middle page of each filter's result. It lands in the copied rows,
+    // so no page cached before the table grew can answer it, and it makes
+    // the database skip half the matches.
+    const checks = c.filters.map((filter) => ({
+      filter,
+      page: Math.max(
+        1,
+        Math.ceil(expectedIdsScaled(csv, filter, c.copies).length / pageSize / 2),
+      ),
+    }));
     for (const { filter, page } of checks) {
       const expected = expectedIdsScaled(csv, filter, c.copies);
       // Three requests: a cache can make the second one fast, but the first

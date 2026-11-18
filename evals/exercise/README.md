@@ -19,7 +19,7 @@ pnpm evals:exercise --out evals/runs/local --scale --baseline evals/exercise/bas
 ```
 
 - `--base-url <url>`: where the app runs. Default `http://localhost:3000`.
-- `--scale`: also runs `scale/million-rows`. It copies the table 99 more times (shifted IDs), checks and times five pages, then deletes the copies, also on Ctrl-C. About 30 seconds. It changes your local database while it runs, so it is off by default. CI runs it.
+- `--scale`: also runs `scale/million-rows`. It copies the table 99 more times (shifted IDs), checks and times the middle page of four filtered results (deep in the copies, so no earlier cache can answer), then deletes the copies, also on Ctrl-C. About 30 seconds. It changes your local database while it runs, so it is off by default. CI runs it.
 - `--baseline <file>`: exit 1 when results differ from the file. See [CI enforces a baseline](../README.md#ci-enforces-a-baseline).
 - `--write-baseline <file>`: update the file from this run. Skipped cases keep their entry, and a case that passed before stays `pass` (the run exits 1) unless you add `--accept-regressions`.
 - Database access runs `psql` inside the Supabase container (`supabase_db_<project_id>`), so only Docker is needed. `EVALS_DB_CONTAINER` overrides the name.

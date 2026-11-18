@@ -161,6 +161,28 @@ export function compareRows(
 
 export type Baseline = Record<string, "pass" | "fail">;
 
+/**
+ * The baseline from its JSON text, or what is wrong with it. Any value other
+ * than "pass" or "fail" would silently stop that case from being enforced.
+ */
+export function parseBaseline(text: string): Baseline | string {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    return "is not valid JSON.";
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return 'must be an object of case IDs to "pass" or "fail".';
+  }
+  for (const [id, status] of Object.entries(value)) {
+    if (status !== "pass" && status !== "fail") {
+      return `has ${JSON.stringify(status)} for ${id}; use "pass" or "fail".`;
+    }
+  }
+  return value as Baseline;
+}
+
 export type BaselineDiff = {
   /** Passed in the baseline, fail now. */
   regressed: string[];
