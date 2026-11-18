@@ -73,6 +73,9 @@ const readBaseline = (path: string, missingOk: boolean): Baseline => {
 
 // Read before running, so a wrong path fails fast.
 const baseline = args.baseline ? readBaseline(args.baseline, false) : undefined;
+const previousBaseline = args["write-baseline"]
+  ? readBaseline(args["write-baseline"], true)
+  : undefined;
 
 // ---------------------------------------------------------------------------
 // Database access goes through psql inside the Supabase database container,
@@ -541,7 +544,7 @@ writeFileSync(join(args.out, "summary.md"), summary);
 
 if (args["write-baseline"]) {
   const path = args["write-baseline"];
-  const previous = readBaseline(path, true);
+  const previous = previousBaseline!;
   const accept = args["accept-regressions"];
   const next = nextBaseline(previous, results, caseIds, accept);
   writeFileSync(path, JSON.stringify(next, null, 2) + "\n");
