@@ -12,9 +12,9 @@ export type Result = {
 
 /**
  * The pages to request for a result of `total` rows. Small results are
- * walked in full. Large ones check the first two pages and the last. The
- * page after the last must show no rows. Together these prove the app
- * counted every match, no more and no fewer.
+ * walked in full. Large ones check the first two pages and the last; the
+ * pages in between are not read. The page after the last must show no rows,
+ * so a total that is too high or too low fails.
  */
 export function pagesToCheck(total: number, pageSize: number): number[] {
   if (total === 0) return [1];

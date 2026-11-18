@@ -2,12 +2,12 @@
 
 Checks the app against the exercise in the [root README](../../README.md). The expected answer for every case is computed from `data/synthetic_coffee_health_10000.csv`, not from the app.
 
-| Cases     | What passes                                                                                                                                                                                                                                            |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `data/*`  | The table holds the 10,000 CSV rows, with the same value in every column.                                                                                                                                                                              |
-| `page/*`  | For each filter, the page shows exactly the matching rows in ID order, and the page after the last shows no rows, which proves the total. `page/row-values` checks that rows show their CSV values, each under its own header (`HEADERS` in `app.ts`). |
-| `input/*` | A hostile filter value matches nothing, and a page past the end (right after the last, or far past it) says it has no rows. Neither changes data.                                                                                                      |
-| `scale/*` | `page-weight`: the page sends one page of rows, not the dataset. `million-rows` (only with `--scale`): at 1,000,000 rows, pages stay correct and answer in under 2 seconds.                                                                            |
+| Cases     | What passes                                                                                                                                                                                                                                               |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data/*`  | The table holds the 10,000 CSV rows, with the same value in every column.                                                                                                                                                                                 |
+| `page/*`  | For each filter, the page shows exactly the matching rows in ID order, and the page after the last shows no rows, so a wrong total shows up. `page/row-values` checks that rows show their CSV values, each under its own header (`HEADERS` in `app.ts`). |
+| `input/*` | A hostile filter value matches nothing, and a page past the end (right after the last, or far past it) says it has no rows. Neither changes data.                                                                                                         |
+| `scale/*` | `page-weight`: the page sends one page of rows, not the dataset. `million-rows` (only with `--scale`): at 1,000,000 rows, pages stay correct and answer in under 2 seconds.                                                                               |
 
 ## Run
 
@@ -28,7 +28,7 @@ pnpm evals:exercise --out evals/runs/local --scale --baseline evals/exercise/bas
 
 ## How the page is read
 
-`page.ts` loads the server's HTML into jsdom and runs its inline scripts, so rows that React streams in after the table shell land where a browser puts them. Then it finds the visible table with an `ID` column and reads the IDs. When no rows are expected, the page must also show a message saying so; an error page or a stuck loading state does not count. A filter is checked page by page: results of up to three pages are walked in full; larger ones check pages 1, 2, and the last. Then the page after the last must show no rows.
+`page.ts` loads the server's HTML into jsdom and runs its inline scripts, so rows that React streams in after the table shell land where a browser puts them. Then it finds the visible table with an `ID` column and reads the IDs. When no rows are expected, the page must also show a message saying so; an error page or a stuck loading state does not count. A filter is checked page by page: results of up to three pages are walked in full; larger ones check pages 1, 2, and the last, and the pages in between are not read. Then the page after the last must show no rows, so a total that is too high or too low fails.
 
 ## When the app changes
 
