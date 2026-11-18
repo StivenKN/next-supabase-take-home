@@ -10,30 +10,31 @@ This repo is a take-home exercise from Medallo.dev. The app is Next.js 16 with a
 
 The rules in this file are defaults. Our instructions override them. If a rule blocks your task, say so and get our approval before you break the rule.
 
-Keep these statements true for the reviewers:
+Make these statements true for the reviewers, and then keep them true:
 
 - **The app works from a fresh clone.** The README setup must end with 10,000 loaded rows and a visible table. A fresh clone gets rows only from the migrations and `supabase/seed.sql`, or from a step that the README tells the reviewer to run. If your change adds a setup step, add the step to the README in English and in Spanish.
 - **The design holds at millions of rows.** Filter, sort, page, and count in Postgres. Do not send the full dataset to the browser.
-- **We can explain the code without you.** Choose the plain solution. Before you add a dependency, write in the pull request body what the dependency replaces. Record each trade-off in the submission notes. The submission notes are a section of `README.md`, in English and in Spanish.
+- **We can explain the code without you.** Choose the plain solution. When you add a dependency, say in the pull request body what the dependency replaces. Record each trade-off in the submission notes. The submission notes are two sections of `README.md`, `## Submission notes (English)` and `## Notas de entrega (Español)`. If a section does not exist, add it after the Exercise section in the same language.
 
 ## Other agents share your machine
 
 Several agents work on this repo at the same time, each in a separate git worktree. The worktrees share these resources.
 
-- **The Supabase stack.** `supabase/config.toml` sets `project_id = "take-home"` and fixed ports. Every worktree therefore uses the same containers and the same database. `pnpm exec supabase db reset` drops that database and rebuilds it from the migrations in your worktree. Run `pnpm exec supabase db reset` only when your task changes the schema. Also run it when a reset from another worktree removed a table that your task needs. Do not run `pnpm exec supabase stop`, because the apps in the other worktrees lose their database.
+- **The Supabase stack.** `supabase/config.toml` sets `project_id = "take-home"` and fixed ports. Every worktree therefore uses the same containers and the same database. `pnpm exec supabase db reset` drops that database and rebuilds it from the migrations in your worktree. Run `pnpm exec supabase db reset` in two cases only. The first case is a task that changes the schema. The second case is a reset from another worktree that removed a table that your task needs. Do not run `pnpm exec supabase stop`, because the apps in the other worktrees lose their database.
 - **The process list.** Other worktrees run `next dev` too. Never stop processes by name, as `pkill -f next` does. Stop only a process whose PID you recorded when you started the process. If you lost the PID, run `ss -H -ltnp "sport = :<port>"` with your port, and confirm that `/proc/<pid>/cwd` is your worktree. Stop your dev server before you finish.
 
-## Supabase returns partial or empty data without an error
+## Supabase behavior to plan for
 
 - **The API returns at most 1,000 rows.** `max_rows = 1000` in `supabase/config.toml` caps every response, even when the query sets a larger `limit`. A query for all 10,000 rows returns 1,000 rows and no error. Request one page per query. Get the total from a count, not from the length of the returned array. The paging method and the count method are design decisions, so record them in the submission notes. Do not raise `max_rows`.
-- **A table without a policy returns `[]`.** When row level security is enabled and no `select` policy exists, the publishable key reads zero rows with status 200. Give each new table a `select` policy, as `supabase/schemas/notes.sql` does. Keep row level security enabled.
-- **The publishable key cannot insert.** The clients from `createClient()` read the publishable key from `NEXT_PUBLIC_SUPABASE_ANON_KEY`. An insert with that key fails with error `42501` until the table has an `insert` policy. Two paths skip row level security. The first path is `createAdminClient()` in `lib/supabase/server.ts`, which uses `SUPABASE_SECRET_KEY`. Call `createAdminClient()` only from server code. The second path is a direct Postgres connection on port 54322 as `postgres`, which the migrations and `supabase/seed.sql` use.
+- **A new table starts with row level security disabled.** The publishable key, which ships to the browser, can then read, insert, and delete every row. Enable row level security on each new table, as `supabase/schemas/notes.sql` does.
+- **A table without a `select` policy returns `[]`.** When row level security is enabled and no `select` policy exists, the publishable key reads zero rows with status 200. Give each table that the app reads a `select` policy.
+- **The publishable key cannot insert into a protected table.** The clients from `createClient()` read the publishable key from `NEXT_PUBLIC_SUPABASE_ANON_KEY`. On a table with row level security enabled, an insert with that key fails with error `42501` until the table has an `insert` policy. The secret key `SUPABASE_SECRET_KEY` skips row level security. `createAdminClient()` in `lib/supabase/server.ts` uses the secret key. Use the secret key only in server code. A direct Postgres connection on port 54322 as `postgres` also skips row level security. The migrations and `supabase/seed.sql` use that connection.
 - **Column values have type `any`.** The clients in `lib/supabase/` have no `Database` type. Neither `pnpm typecheck` nor `pnpm lint` reports a wrong column type. Give each query result a row type.
 
 ## Next.js 16 behavior to plan for
 
 - **The installed docs are the reference.** `node_modules/next/dist/docs/` holds the docs for the installed version. Read the page for an API before you use the API.
-- **An uncached read outside `<Suspense>` fails the build.** `next.config.ts` sets `cacheComponents: true`. A page that awaits a Supabase query at the top level stops `pnpm build` with `Uncached data was accessed outside of <Suspense>`. Read `searchParams` and query Supabase inside an async component, and wrap that component in `<Suspense>`.
+- **An uncached read outside `<Suspense>` fails the build.** `next.config.ts` sets `cacheComponents: true`. A page that awaits `searchParams`, `cookies()`, or a Supabase query at the top level stops `pnpm build` with `Uncached data was accessed outside of <Suspense>`. Read `searchParams` and query Supabase inside an async component. Wrap that component in `<Suspense>`.
 - **`lib/supabase/proxy.ts` is not connected.** The repo has no root `proxy.ts`, so `updateSession()` never runs. Connect `updateSession()` only if the task needs sign-in. As written, `updateSession()` redirects each signed-out request to `/auth/login`, except for `/` and for paths that start with `/login` or `/auth`. The `/auth/login` route does not exist.
 - **`next dev` rewrites the tracked file `next-env.d.ts`.** Run `git checkout next-env.d.ts` before you commit.
 
@@ -47,10 +48,10 @@ A new worktree has no `node_modules` directory and no `.env.local` file.
 
 ## Change the schema
 
-The files in `supabase/schemas/` declare the schema. The database runs the files in `supabase/migrations/`.
+The files in `supabase/schemas/` declare the schema. `supabase db reset` and the first `supabase start` apply the files in `supabase/migrations/`.
 
 1. Edit or add a file in `supabase/schemas/`.
-2. Run `pnpm exec supabase db diff -f <name>` to write the migration. The command starts a temporary Postgres container on port 54320, and every worktree uses that port. If the command fails with `address already in use`, another worktree is running a diff. Wait, and then run the command again. Do not remove the container.
+2. Run `pnpm exec supabase db diff -f <name>` to write the migration. The command starts a temporary Postgres container on port 54320, and every worktree uses that port. If the command fails with `port is already allocated`, another worktree is running a diff. The CLI then suggests `supabase stop --project-id take-home`. Do not run that command, because it stops the shared stack. Wait, and then run the diff again.
 3. Read the migration. The diff tool can put statements in the wrong order.
 4. A reset deletes each row that the migrations and `supabase/seed.sql` do not create. Run `pnpm exec supabase db reset`. This command applies every migration, and then applies `supabase/seed.sql`. If neither loads the CSV, load the CSV again.
 5. Commit the schema file and the migration together.
@@ -75,7 +76,7 @@ pnpm build
 
 ## Pull requests
 
-- Write the title as a plain statement of the change, as in `Add CI pipeline`. Merge with squash. The title then becomes the commit message on `main`.
+- Write the title as a plain statement of the change, as in `Add CI pipeline`. Merge with squash. GitHub names the commit on `main` after the title, unless the pull request has one commit. For a pull request with one commit, GitHub uses the message of that commit, so give that commit the same message as the title.
 - Start the body with the problem in one or two sentences. Then describe the fix.
 - If the change is visible in the app, attach a screenshot to the pull request. Do not commit the screenshot.
 - Do not commit plans, research files, or scratch files.
