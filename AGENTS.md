@@ -69,7 +69,8 @@ pnpm test:run
 pnpm build
 ```
 
-- CI also starts Supabase, which applies the migrations and `supabase/seed.sql`. Then CI runs `supabase db lint` and requests `/` from the built app. The CI database holds the CSV rows only if a migration or `supabase/seed.sql` loads them. The steps are in `.github/workflows/ci.yml`.
+- CI also starts Supabase, which applies the migrations and `supabase/seed.sql`. The CI database holds the CSV rows only if a migration or `supabase/seed.sql` loads them. Then CI runs `supabase db lint` and builds the app.
+- The last CI step requests the path `SMOKE_PATH` from the built app, and searches the HTML for the text `SMOKE_EXPECT`. Both values are in `.github/workflows/ci.yml`. If your change removes that text from the page, update both values.
 - Vitest runs each file that matches `**/*.{test,spec}.{ts,tsx}`. Put a test file next to the code that the file tests.
 - Test logic that can break, such as the code that turns URL parameters into a query. Do not test static markup, copy text, or behavior that the types guarantee.
 - Passing checks do not prove the feature. Open the page in a browser with all 10,000 rows loaded. Compare the row count in Postgres with the CSV, apply each filter, and open a page past row 1,000.
