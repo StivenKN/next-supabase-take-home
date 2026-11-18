@@ -435,7 +435,7 @@ for (const c of selected) {
   try {
     check = await runCase(c, csv, pageSize);
   } catch (error) {
-    check = { pass: false, detail: (error as Error).message.split("\n")[0] };
+    check = { pass: false, detail: (error as Error).message.split("\n")[0] ?? "" };
   }
   const result: Result = {
     id: c.id,

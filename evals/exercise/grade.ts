@@ -92,9 +92,10 @@ export function compareCells(
   for (const [i, id] of table.ids.entries()) {
     const row = csvById.get(id);
     if (!row) return `ID ${id} is not in the CSV`;
+    const cells = table.cells[i] ?? [];
     for (const column of columns) {
-      if (!table.cells[i].includes(row[column])) {
-        return `ID ${id} has no cell reading "${row[column]}" (${column}); its cells: ${table.cells[i].join(" | ")}`;
+      if (!cells.includes(row[column])) {
+        return `ID ${id} has no cell reading "${row[column]}" (${column}); its cells: ${cells.join(" | ")}`;
       }
     }
   }

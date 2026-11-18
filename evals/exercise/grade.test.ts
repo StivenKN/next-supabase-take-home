@@ -60,7 +60,7 @@ describe("oracle", () => {
     const ids = expectedIdsScaled(csv, { choices: { gender: ["Other"] } }, 3);
     expect(ids).toHaveLength(226 * 3);
     expect(ids).toEqual([...ids].sort((a, b) => a - b));
-    expect(ids[226]).toBe(ids[0] + 10_000);
+    expect(ids[226]).toBe(ids[0]! + 10_000);
   });
 });
 
@@ -242,7 +242,7 @@ describe("round trip", () => {
     const changed = rows.map(stored);
     changed[4] = { ...changed[4], bmi: 99 };
     expect(compareRows(rows, changed, lower)).toEqual([
-      `ID 5 BMI: CSV ${rows[4].BMI}, stored 99`,
+      `ID 5 BMI: CSV ${rows[4]!.BMI}, stored 99`,
     ]);
     expect(compareRows(rows, changed.slice(1), lower)[0]).toBe("ID 1 is missing");
   });
