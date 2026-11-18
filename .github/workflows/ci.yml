@@ -40,7 +40,8 @@ jobs:
     # (migrations + seed.sql), `pnpm setup:env`, a production build, then
     # requests the home page from the running server and runs the exercise
     # evals against it (evals/README.md).
-    name: Supabase + build + smoke test + evals
+    # The name is a required check in the "main: CI must pass" ruleset; keep it.
+    name: Supabase + build + smoke test
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
