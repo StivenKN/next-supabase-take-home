@@ -20,6 +20,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: pnpm/action-setup@v6
         with:
           version: 10
@@ -43,8 +45,19 @@ jobs:
       # GitHub runners often hit the anonymous pull quota on public.ecr.aws
       # (the CLI's default registry). Docker Hub hosts the same images.
       SUPABASE_INTERNAL_IMAGE_REGISTRY: docker.io
+      # The app doesn't use these; skip their containers and schema setup.
+      SUPABASE_REALTIME_ENABLED: "false"
+      SUPABASE_STORAGE_ENABLED: "false"
+      # Page the smoke test loads, and text that must be in its HTML. A 200
+      # alone doesn't prove much: with cacheComponents the static shell is
+      # sent before any query runs. Once the data table lands, point these at
+      # its route and at a value only real rows render.
+      SMOKE_PATH: /
+      SMOKE_EXPECT: Instructions (English)
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: pnpm/action-setup@v6
         with:
           version: 10
@@ -70,20 +83,20 @@ jobs:
         run: |
           pnpm start > next.log 2>&1 &
           for i in $(seq 1 30); do
-            if curl -fsS -o page.html http://localhost:3000/; then
-              echo "GET / -> 200 ($(wc -c < page.html) bytes)"
-              exit 0
-            fi
-            sleep 2
+            curl -s -o /dev/null --max-time 5 http://localhost:3000/ && break
+            sleep 1
           done
-          echo "App did not answer 200 on / within 60s" >&2
-          cat next.log >&2
-          exit 1
+          status=$(curl -sS --max-time 30 -o page.html -w '%{http_code}' "http://localhost:3000${SMOKE_PATH}" || true)
+          echo "GET ${SMOKE_PATH} -> ${status:-no response} ($(wc -c < page.html 2>/dev/null || echo 0) bytes)"
+          if [ "$status" != 200 ]; then
+            echo "::error::GET ${SMOKE_PATH} returned ${status:-no response}, expected 200"
+            exit 1
+          fi
+          if ! grep -qF "$SMOKE_EXPECT" page.html; then
+            echo "::error::GET ${SMOKE_PATH} is missing the expected text: ${SMOKE_EXPECT}"
+            exit 1
+          fi
 
       - name: Server log
         if: always()
         run: cat next.log 2>/dev/null || true
-
-      - name: Stop Supabase
-        if: always()
-        run: pnpm exec supabase stop --no-backup || true
