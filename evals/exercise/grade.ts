@@ -64,7 +64,7 @@ export function compareIds(
  * rows, or, when none are expected, no rows and a message saying so. A page
  * with no table and no message (an error page, a stuck loading state) fails.
  *
- * `table: "enough"` relaxes the empty case: an empty data table also passes.
+ * `emptyTable: "enough"` relaxes the empty case: an empty data table also passes.
  * Filter cases use it for the page after the last, where the point is to
  * prove the total, and the wording of an out-of-range page has its own case.
  */

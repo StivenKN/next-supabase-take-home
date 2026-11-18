@@ -333,18 +333,26 @@ async function runScale(
     .map((column) => (column === id ? `${id} + k * ${csv.length}` : column))
     .join(", ");
 
-  const removeCopies = () =>
+  // Ctrl-C in a terminal also stops the docker exec running the copy, but
+  // not the query inside the container, which would commit later. So the
+  // copy carries a marker, and cleanup cancels it and waits for it to end
+  // before deleting.
+  const marker = "/* evals:scale-copy */";
+  const removeCopies = async () => {
+    const running = `select count(*) from pg_stat_activity where pid <> pg_backend_pid() and query like '${marker}%'`;
+    for (let i = 0; i < 50 && sql(running) !== "0"; i++) {
+      sql(`select pg_cancel_backend(pid) from pg_stat_activity where pid <> pg_backend_pid() and query like '${marker}%'`);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
     sql(`delete from ${TABLE} where ${id} > ${csv.length}`, `vacuum analyze ${TABLE}`);
-  // Ctrl-C must not leave a million rows behind.
-  const onSignal = () => {
+  };
+  const onSignal = async () => {
     console.error("\nStopped. Removing the scale copies first.");
-    // Stopping docker exec does not stop the query inside the container, so
-    // cancel the copy first, or it could commit after the delete.
-    sql(
-      `select pg_cancel_backend(pid) from pg_stat_activity where pid <> pg_backend_pid() and query like 'insert into ${TABLE} %'`,
-    );
-    removeCopies();
-    process.exit(130);
+    try {
+      await removeCopies();
+    } finally {
+      process.exit(130);
+    }
   };
   process.once("SIGINT", onSignal);
   process.once("SIGTERM", onSignal);
@@ -352,14 +360,17 @@ async function runScale(
   try {
     const grew = performance.now();
     sql(
-      `insert into ${TABLE} (${columns.join(", ")}) overriding system value select ${select} from ${TABLE}, generate_series(1, ${c.copies - 1}) as k where ${id} <= ${csv.length}`,
+      `${marker} insert into ${TABLE} (${columns.join(", ")}) overriding system value select ${select} from ${TABLE}, generate_series(1, ${c.copies - 1}) as k where ${id} <= ${csv.length}`,
       `analyze ${TABLE}`,
     );
     const growSeconds = ((performance.now() - grew) / 1000).toFixed(1);
 
     const total = rowCount();
     if (total !== csv.length * c.copies) {
-      return { pass: false, detail: `grew to ${total} rows, expected ${csv.length * c.copies}` };
+      return {
+        pass: false,
+        detail: `grew to ${total} rows, expected ${csv.length * c.copies}: the copy did not finish (stopped with Ctrl-C, or the insert failed)`,
+      };
     }
 
     const timings: string[] = [];
@@ -394,9 +405,12 @@ async function runScale(
       detail: `${total} rows (grown in ${growSeconds} s); slowest ${Math.round(slowest)} ms, limit ${c.maxMs} ms; ${timings.join("; ")}`,
     };
   } finally {
-    removeCopies();
+    // Let a signal that arrived during a blocking call reach its handler
+    // first, so a stopped run exits instead of carrying on.
+    await new Promise((resolve) => setImmediate(resolve));
     process.off("SIGINT", onSignal);
     process.off("SIGTERM", onSignal);
+    await removeCopies();
   }
 }
 
