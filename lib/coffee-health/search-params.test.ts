@@ -108,9 +108,9 @@ describe("boundFromInput", () => {
   });
 
   it("gives null for text that is not a usable bound", () => {
-    expect(boundFromInput("", 1)).toBeNull();
-    expect(boundFromInput("abc", 1)).toBeNull();
-    expect(boundFromInput("-3", 1)).toBeNull();
+    for (const text of ["", " ", "abc", "-3", "-", ".", "3e", "1e5", "0x10"]) {
+      expect(boundFromInput(text, 1)).toBeNull();
+    }
   });
 
   it("never gives a value the URL parser would drop", () => {

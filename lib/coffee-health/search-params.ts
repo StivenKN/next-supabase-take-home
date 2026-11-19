@@ -71,13 +71,14 @@ export function parseChoices(
 
 /**
  * A bound as a person types it in a range field: "6,55" and "6.55" both give
- * 6.6 for a column with one decimal. The result always passes parseBound, so
- * what the field applies is what the URL keeps.
+ * 6.6 for a column with one decimal. Only plain digits with one decimal mark
+ * count, so "-5", "1e5", and "0x10" give null. The result always passes
+ * parseBound, so what the field applies is what the URL keeps.
  */
 export function boundFromInput(text: string, step: number): number | null {
-  if (text.trim() === "") return null;
-  const value = Number(text.replace(",", "."));
-  if (!Number.isFinite(value) || value < 0) return null;
+  const typed = text.trim();
+  if (!/^\d+([.,]\d+)?$/.test(typed)) return null;
+  const value = Number(typed.replace(",", "."));
   const rounded = step === 1 ? Math.round(value) : Math.round(value * 10) / 10;
   return rounded > 9999 ? null : rounded;
 }

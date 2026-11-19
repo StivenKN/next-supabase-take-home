@@ -189,7 +189,12 @@ function ExplorerSkeleton({ label }: { label: string }) {
       className="flex min-h-0 flex-1 flex-col motion-safe:animate-pulse"
     >
       <div className={FILTER_SECTION}>
-        <div className={cn(FILTER_COUNT, "h-5 items-center xl:tall:h-auto")}>
+        <div
+          className={cn(
+            FILTER_COUNT,
+            "h-5 items-center xl:tall:h-auto xl:tall:items-start",
+          )}
+        >
           <div className="h-3 w-28 rounded-full bg-muted" />
         </div>
         <div className={cn(FILTER_GRID, "overflow-x-hidden")}>
@@ -202,7 +207,7 @@ function ExplorerSkeleton({ label }: { label: string }) {
         </div>
       </div>
       <div className="skeleton-rows min-h-0 flex-1 bg-card" />
-      <div className="flex h-12 items-center justify-between border-t px-4">
+      <div className="flex h-[49px] items-center justify-between border-t px-4">
         <div className="h-3 w-24 rounded-full bg-muted" />
         <div className="h-3 w-40 rounded-full bg-muted" />
       </div>

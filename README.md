@@ -211,8 +211,8 @@ Row level security is on, with one `select` policy. The `anon` and `authenticate
 [scripts/load-coffee-health.sh](scripts/load-coffee-health.sh) (`pnpm db:load`) streams the CSV into Postgres with `COPY`, through `psql` inside the Supabase database container, so it needs nothing installed beyond Docker.
 
 - It compares the CSV header with the expected column list first. `COPY` maps columns by position, so a reordered file would otherwise load into the wrong columns without an error.
-- `truncate` and `copy` run in one transaction. A failed load leaves the previous rows in place, and running the script twice gives the same result.
-- It runs `analyze` and then fails unless the row count in the table equals the row count in the file.
+- `truncate`, `copy`, and a row-count check run in one transaction. If the copy fails, or the table's count differs from the file's, the transaction rolls back and the previous rows stay. Running the script twice gives the same result.
+- It then runs `analyze`.
 
 The load takes about 0.3 seconds for 10,000 rows. To check it, I exported the table back to CSV and diffed it against the source file. The two are identical. CI runs the same loader against a fresh database on every pull request.
 
@@ -243,7 +243,7 @@ Only columns with an index are sortable: id, age, country, caffeine, coffee, sle
 
 ### Scale
 
-I copied the dataset 200 times into a 2 million row table with the same indexes and ran each query shape the page can produce. [scripts/bench-scale.sql](scripts/bench-scale.sql) reproduces this. Separately, the `scale/million-rows` eval in [evals/exercise](evals/exercise/) grows the table to 1,000,000 rows and requests deep pages through the running app. CI fails if any response takes 2 seconds, and on my machine the slowest took 175 ms. The times below are single runs of `EXPLAIN ANALYZE` on Postgres 17 in Docker on a laptop, so read them as orders of magnitude.
+I copied the dataset 200 times into a 2 million row table with the same indexes and ran each query shape the page can produce. [scripts/bench-scale.sql](scripts/bench-scale.sql) reproduces this. Separately, the `scale/million-rows` eval in [evals/exercise](evals/exercise/) grows the table to 1,000,000 rows and requests deep pages through the running app. CI fails if any response takes more than 2 seconds, and on my machine the slowest took 175 ms. The times below are single runs of `EXPLAIN ANALYZE` on Postgres 17 in Docker on a laptop, so read them as orders of magnitude.
 
 | Query at 2 million rows                                     | Time         |
 | ----------------------------------------------------------- | ------------ |
@@ -498,8 +498,8 @@ Row level security está activado, con una política de `select`. Los roles `ano
 [scripts/load-coffee-health.sh](scripts/load-coffee-health.sh) (`pnpm db:load`) envía el CSV a Postgres con `COPY`, usando `psql` dentro del contenedor de base de datos de Supabase, así que no requiere instalar nada aparte de Docker.
 
 - Primero compara el encabezado del CSV con la lista de columnas esperada. `COPY` asigna las columnas por posición, así que un archivo reordenado se cargaría en las columnas equivocadas sin dar error.
-- `truncate` y `copy` corren en una sola transacción. Una carga fallida deja las filas anteriores en su lugar, y ejecutar el script dos veces da el mismo resultado.
-- Ejecuta `analyze` y falla si el número de filas de la tabla no es igual al del archivo.
+- `truncate`, `copy` y una comprobación del número de filas corren en una sola transacción. Si la copia falla, o el conteo de la tabla no coincide con el del archivo, la transacción se revierte y las filas anteriores se conservan. Ejecutar el script dos veces da el mismo resultado.
+- Después ejecuta `analyze`.
 
 La carga tarda unos 0,3 segundos para 10.000 filas. Para comprobarla, exporté la tabla de vuelta a CSV y la comparé con el archivo original usando `diff`. Son idénticos. La CI ejecuta el mismo cargador contra una base de datos nueva en cada pull request.
 
@@ -530,7 +530,7 @@ Solo se puede ordenar por columnas con índice: id, edad, país, cafeína, café
 
 ### Escala
 
-Copié el conjunto de datos 200 veces en una tabla de 2 millones de filas con los mismos índices y ejecuté cada forma de consulta que la página puede producir. [scripts/bench-scale.sql](scripts/bench-scale.sql) lo reproduce. Aparte, el eval `scale/million-rows` de [evals/exercise](evals/exercise/) hace crecer la tabla a 1.000.000 de filas y pide páginas profundas a la aplicación en ejecución. La CI falla si alguna respuesta tarda 2 segundos, y en mi máquina la más lenta tardó 175 ms. Los tiempos de abajo son ejecuciones únicas de `EXPLAIN ANALYZE` en Postgres 17 dentro de Docker en un portátil, así que sirven como órdenes de magnitud.
+Copié el conjunto de datos 200 veces en una tabla de 2 millones de filas con los mismos índices y ejecuté cada forma de consulta que la página puede producir. [scripts/bench-scale.sql](scripts/bench-scale.sql) lo reproduce. Aparte, el eval `scale/million-rows` de [evals/exercise](evals/exercise/) hace crecer la tabla a 1.000.000 de filas y pide páginas profundas a la aplicación en ejecución. La CI falla si alguna respuesta tarda más de 2 segundos, y en mi máquina la más lenta tardó 175 ms. Los tiempos de abajo son ejecuciones únicas de `EXPLAIN ANALYZE` en Postgres 17 dentro de Docker en un portátil, así que sirven como órdenes de magnitud.
 
 | Consulta con 2 millones de filas                                                     | Tiempo      |
 | ------------------------------------------------------------------------------------ | ----------- |

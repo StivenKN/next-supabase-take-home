@@ -470,12 +470,20 @@ function RangeFilter({
         {/* Mounted only while open, so the fields start from the current filter each time. */}
         {open && (
           <RangeFields
+            // Back or Forward can change the range under an open panel.
+            key={`${range.min}:${range.max}`}
             label={label}
             range={range}
             bounds={bounds}
             step={RANGE_STEPS[filter]}
             onApply={(next) => {
               closePanel();
+              // In the sideways row on a phone the button can sit half off
+              // screen, where its new value would go unseen.
+              buttonRef.current?.scrollIntoView({
+                block: "nearest",
+                inline: "nearest",
+              });
               if (next.min !== range.min || next.max !== range.max) {
                 setRange(next);
               }
@@ -509,9 +517,16 @@ function RangeFields({
   const minId = useId();
   const maxId = useId();
   const hintId = useId();
+  // The page's decimal mark, so the Spanish page shows "2,5" as its hint does.
+  const show = (bound: number | null) =>
+    bound === null
+      ? ""
+      : locale === "es"
+        ? bound.toString().replace(".", ",")
+        : bound.toString();
   const [draft, setDraft] = useState({
-    min: range.min?.toString() ?? "",
-    max: range.max?.toString() ?? "",
+    min: show(range.min),
+    max: show(range.max),
   });
 
   const min = boundFromInput(draft.min, step);
@@ -541,10 +556,11 @@ function RangeFields({
       </Label>
       <Input
         id={id}
-        type="number"
+        // A text field, because type="number" hides what was typed from the
+        // page: Chrome drops the comma in "2,5" and reports "3e" as empty.
+        type="text"
         inputMode={step === 1 ? "numeric" : "decimal"}
-        min={0}
-        step={step}
+        autoComplete="off"
         autoFocus={side === "min"}
         value={draft[side]}
         aria-invalid={problem !== null || undefined}
@@ -553,7 +569,7 @@ function RangeFields({
         // Show what Apply will use: "6.55" becomes "6.6", the URL's value.
         onBlur={() => {
           const bound = side === "min" ? min : max;
-          if (bound !== null) setDraft({ ...draft, [side]: bound.toString() });
+          if (bound !== null) setDraft({ ...draft, [side]: show(bound) });
         }}
         onKeyDown={(event) => {
           if (event.key !== "Enter") return;

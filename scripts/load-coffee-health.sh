@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Loads data/synthetic_coffee_health_10000.csv into public.coffee_health with
-# Postgres COPY. Safe to re-run: the truncate and the copy share one
-# transaction, so a failed load leaves the previous rows in place.
+# Postgres COPY. Safe to re-run: the truncate, the copy, and the row-count
+# check share one transaction, so a failed load leaves the previous rows.
 #
 # --if-empty: do nothing when the table already has rows. `pnpm setup:env`
 # uses it, so a fresh clone gets the data without reloading on every run.
@@ -62,15 +62,14 @@ fi
 
 csv_rows="$(tail -n +2 "$CSV" | grep -c . || true)"
 
+# The count check is inside the transaction, so a short load rolls back with
+# the truncate and leaves the previous rows.
 psql --quiet --single-transaction \
   -c "truncate table public.coffee_health" \
   -c "\\copy public.coffee_health ($COLUMNS) from pstdin with (format csv, header true)" \
+  -c "do \$\$ declare loaded bigint; begin select count(*) into loaded from public.coffee_health; if loaded <> $csv_rows then raise exception 'loaded % rows but the CSV has $csv_rows', loaded; end if; end \$\$" \
   < "$CSV"
 
 psql --quiet -c "analyze public.coffee_health"
 
-db_rows="$(psql -At -c "select count(*) from public.coffee_health")"
-[[ "$db_rows" == "$csv_rows" ]] ||
-  fail "loaded $db_rows rows but the CSV has $csv_rows"
-
-echo "Loaded $db_rows rows into public.coffee_health (CSV has $csv_rows)"
+echo "Loaded $csv_rows rows into public.coffee_health"
