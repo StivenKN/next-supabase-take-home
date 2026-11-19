@@ -88,8 +88,8 @@ jobs:
         run: pnpm db:load
 
       - name: Verify pagination
-        # Pages through getPage() for every sort and 100 random filter views
-        # and compares with the CSV. Before the evals, whose --scale case
+        # Pages through getPage() for every sort, a few dozen fixed edge views,
+        # and 100 random filter views, and compares with the CSV. Before the evals, whose --scale case
         # adds rows. See .agents/skills/verify-coffee-health-pagination/.
         run: pnpm verify:pagination
 

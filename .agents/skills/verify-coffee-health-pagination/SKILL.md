@@ -20,15 +20,15 @@ No verifier runs on TypeScript plus PostgREST plus Postgres, so this tests the r
 For each view it:
 
 1. Turns the view into the link the app renders (`hrefForState`), reads it back the way the server does (`new URL(...).searchParams` into `parseSearchParams`), and checks that the filters and sort are unchanged.
-2. Computes the expected rows from `data/synthetic_coffee_health_10000.csv` with its own filter code (`matches`). It never calls the app's query code for expected answers. It shares only the key lists, `ENUM_OPTIONS`, and `PAGE_SIZE` with the app.
+2. Computes the expected rows from `data/synthetic_coffee_health_10000.csv` with its own filter code (`matches`). It never calls the app's query code for expected answers. It shares only the key lists, `ENUM_OPTIONS`, `RANGE_STEPS`, `DEFAULT_STATE`, and `PAGE_SIZE` with the app.
 3. Follows the link to every page, from 1 to the last, and calls the app's `getPage()` against the local Supabase stack. It checks each page's status, count, and row count, that no ID appears twice, that no matching ID is missing, that no extra ID appears, and that the IDs are in sort order.
 4. Requests the page right after the last one, and a page three past it, and expects `out-of-range` with the right count. `getPage` handles two PostgREST answers here: an empty page when the offset equals the match count, and error `PGRST103` when it is larger. The empty page only happens when the match count is a multiple of 50, so the unfiltered walks (10,000 rows) are what reliably reach it.
 
 It walks these views:
 
 - **Every sort, unfiltered.** All 8 `SORT_KEYS`, ascending and descending, 200 pages each. These are exhaustive.
-- **Fixed boundary views** (`boundaryViews`), the same on every run: for each range a max of 0, min equal to max on the lowest and on the highest value, open-ended bounds at those values, and an inverted range; each flag on its own; single values of each choice filter; and country values that need URL encoding (`#`, `&`, `%`, `+`, a space) or look like PostgREST syntax. Sorts rotate through `SORT_KEYS`.
-- **Generated views.** 100 per run by default (`VERIFY_RUNS`), with a new random seed each run. Each view combines random choice filters (including country strings that match nothing), ranges whose bounds are drawn from the CSV's values (so many sit exactly on a row's value), yes/no flags, and a random sort. Between a fifth and a third of them match no rows. On failure, fast-check shrinks the view to a small one.
+- **Fixed boundary views** (`boundaryViews`), the same on every run: for each range a max of 0, min equal to max on the lowest and on the highest value, open-ended bounds at those values, and an inverted range; each flag on its own; the first two values of each choice filter, one at a time; and country values that need URL encoding (`#`, `&`, `%`, `+`, a space) or look like PostgREST syntax. Sorts rotate through `SORT_KEYS`, ascending on the first pass and descending on the next.
+- **Generated views.** 100 per run by default (`VERIFY_RUNS`), with a new random seed each run. Each view combines random choice filters (including country strings that match nothing), ranges whose bounds are drawn from the CSV's values (so many sit exactly on a row's value), yes/no flags, and a random sort. Between 15 and 35 percent of them match no rows. On failure, fast-check shrinks the view to a small one.
 
 A run takes 30 to 60 seconds, depending on machine load, and prints `Walked N views (M with no matching rows), P pages in all.` for the generated views.
 
@@ -52,22 +52,23 @@ Not covered:
 
 ## Coverage record
 
-| Code                                                                                                                             | Checked by                                 |
-| -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| `lib/coffee-health/queries.ts`: `getPage`, `matching`                                                                            | steps 3 and 4                              |
-| `lib/coffee-health/search-params.ts`: `parseSearchParams`, `parseChoices`, `serializeState`, `hrefForState`                      | steps 1 and 3                              |
-| `lib/coffee-health/schema.ts`: `PAGE_SIZE`, `CHOICE_KEYS`, `RANGE_KEYS`, `RANGE_STEPS`, `FLAG_KEYS`, `SORT_KEYS`, `ENUM_OPTIONS` | the generator and the expected page sizes  |
-| `supabase/schemas/coffee_health.sql` (column types, the `(column, id)` indexes, the read policy)                                 | indirectly, through every query            |
-| `components/explorer/pagination.tsx`, `components/explorer/state-link.tsx` (`{ ...state, page }` passed to `hrefForState`)       | modeled by `followLink` in the verify file |
-| `components/explorer/explorer-context.tsx`: `navigate` (`hrefForState`, then `router.push`)                                      | modeled by `followLink` in the verify file |
-| `components/explorer/explorer-page.tsx`: `parseSearchParams(await searchParams)` passed to `getPage`                             | modeled by `followLink` in the verify file |
+| Code                                                                                                                             | Checked by                                                                    |
+| -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `lib/coffee-health/queries.ts`: `getPage`, `matching`                                                                            | steps 3 and 4                                                                 |
+| `lib/coffee-health/search-params.ts`: `parseSearchParams`, `parseChoices`, `serializeState`, `hrefForState`                      | steps 1 and 3                                                                 |
+| `lib/coffee-health/schema.ts`: `PAGE_SIZE`, `CHOICE_KEYS`, `RANGE_KEYS`, `RANGE_STEPS`, `FLAG_KEYS`, `SORT_KEYS`, `ENUM_OPTIONS` | the generator and the expected page sizes                                     |
+| `supabase/schemas/coffee_health.sql` (column types, the `(column, id)` indexes, the read policy)                                 | indirectly, through every query                                               |
+| `components/explorer/pagination.tsx`, `components/explorer/state-link.tsx` (`{ ...state, page }` passed to `hrefForState`)       | modeled by `followLink` in the verify file                                    |
+| `components/explorer/explorer-context.tsx`: `navigate` (`hrefForState`, then `router.push`)                                      | modeled by `followLink` in the verify file                                    |
+| `components/explorer/explorer-page.tsx`: `parseSearchParams(await searchParams)` passed to `getPage`                             | modeled by `followLink` in the verify file                                    |
+| `data/synthetic_coffee_health_10000.csv`                                                                                         | the expected rows, the country list, and the range bounds the generator draws |
 
 **Last confirmed in sync at commit `2e46943`** (main, "Load the coffee health dataset and show it in a filterable table (#15)").
 
 To see whether the check needs another look, run:
 
 ```sh
-git diff --stat 2e46943 -- lib/coffee-health/queries.ts lib/coffee-health/search-params.ts lib/coffee-health/schema.ts supabase/schemas/coffee_health.sql components/explorer/pagination.tsx components/explorer/state-link.tsx components/explorer/explorer-context.tsx components/explorer/explorer-page.tsx
+git diff --stat 2e46943 -- lib/coffee-health/queries.ts lib/coffee-health/search-params.ts lib/coffee-health/schema.ts supabase/schemas/coffee_health.sql components/explorer/pagination.tsx components/explorer/state-link.tsx components/explorer/explorer-context.tsx components/explorer/explorer-page.tsx data/synthetic_coffee_health_10000.csv
 ```
 
 Move the commit forward only after you have read every change in that diff, confirmed that the verify file still describes the code (same filter kinds, same link shape, the page still passes the parsed URL straight to `getPage`, same past-the-end statuses), and seen `pnpm verify:pagination` pass at the new commit. Update the commit and its title in this paragraph and in the command.
@@ -89,7 +90,7 @@ Do not run `pnpm db:reset` or `supabase stop` just to get this check running, be
 
 ## Read a failure
 
-The message starts with the view in plain words and the app's link for it, then says what went wrong. For example:
+The message starts with the view in plain words and the app's link for it, then says what went wrong. In the generated test, fast-check prints `Property failed after N tests`, the seed, and the view as JSON first, and this message follows on the `Caused by:` line. For example:
 
 ```
 [gender in ["Female"], coffee_intake 0.., smoking no, alcohol_consumption no, sorted by country descending]
@@ -99,7 +100,7 @@ ID 4627 is shown on page 7 and again on page 8
 
 Open the link in the running app (`pnpm dev:next`) to see the same pages.
 
-**Setup, not a bug:** any message that starts with `Setup:`. The check counts the table before the walks and again after any failed walk, without the app's query code, and says what it found: `.env.local` missing, no answer from Supabase, an empty table, or extra rows. A running `pnpm evals:exercise --scale` adds 990,000 rows for about 30 seconds, and another worktree may have reset the database. Write `.env.local` with `pnpm setup:env`, load the CSV with `pnpm db:load` if needed, and rerun.
+**Setup, not a bug:** any message (or `Caused by:` line) that starts with `Setup:`. The check counts the table before the walks and again after any failed walk, without the app's query code, and says what it found: `.env.local` missing, no answer from Supabase, an empty table, or extra rows. A running `pnpm evals:exercise --scale` adds 990,000 rows for about 30 seconds, and another worktree may have reset the database. Write `.env.local` with `pnpm setup:env`, load the CSV with `pnpm db:load` if needed, and rerun. If rows were added and removed again between the failed page and the recount, a setup problem can still read as a bug, so rerun once before you report one.
 
 **A real bug** is any other failure: a duplicate or missing ID, a wrong count, rows out of order, a link that reads back as a different view, or a past-the-end page that shows rows or the wrong count. Do not weaken the check to make it pass. Report the view, the link, and the message.
 
@@ -109,11 +110,11 @@ Open the link in the running app (`pnpm dev:next`) to see the same pages.
 - The failure is only about country order, and the two countries differ in a way collations treat differently (accents, case, punctuation). Compare with `docker exec supabase_db_take-home psql -U postgres -c "select distinct country from public.coffee_health order by country"`.
 - The generator produced a view the app cannot reach. For example, `parseChoices` started rejecting a character that `junkCountry` still generates. Narrow the generator to match the parser and say why in a comment.
 
-New `RANGE_KEYS`, `FLAG_KEYS`, and `SORT_KEYS` entries, and new `CHOICE_KEYS` entries backed by an enum in `ENUM_OPTIONS`, are picked up without edits, as long as the column has the same name in the CSV header (lowercased). A new free-text choice key, like country, makes the check throw until you give it values in `choiceOptions`.
+New `RANGE_KEYS` and `FLAG_KEYS` entries, numeric `SORT_KEYS` entries, and new `CHOICE_KEYS` entries backed by an enum in `ENUM_OPTIONS`, are picked up without edits, as long as the column has the same name in the CSV header (lowercased). A new free-text choice key, like country, makes the check throw until you give it values in `choiceOptions`. A new enum sort key (such as `stress_level`) fails on correct code: Postgres orders enums by declaration, and `compareKeys` compares text. Make `compareKeys` order that column by its index in `ENUM_OPTIONS`.
 
 ## Proof that it can fail
 
-At commit `2e46943`, with the verify file as committed, each of these scratch changes to the real code made `pnpm verify:pagination` fail, and reverting it made the check pass again. "Yes" means that test failed. The unfiltered and fixed tests walk the same views every run, so their result is certain. The generated column is one run, so it can vary.
+With the app code at `2e46943` (this change does not touch it) and the verify file as committed, each of these scratch changes to the real code made `pnpm verify:pagination` fail, and reverting it made the check pass again. "Yes" means that test failed. The unfiltered and fixed tests walk the same views every run, so they give the same result each time, except for the tiebreaker row: whether a missing tiebreaker shows depends on the query plan Postgres picks. The generated column is one run, so it can vary.
 
 | Scratch change                                                                                 | Unfiltered | Fixed | Generated |
 | ---------------------------------------------------------------------------------------------- | ---------- | ----- | --------- |
@@ -124,7 +125,7 @@ At commit `2e46943`, with the verify file as committed, each of these scratch ch
 | `queries.ts`: apply `.in(key, values)` even when nothing is ticked                             | yes        | yes   | yes       |
 | `queries.ts`: treat an empty page after the last as `ok`                                       | yes        | yes   | yes       |
 | `queries.ts`: report count 0 for `PGRST103`                                                    | yes        | yes   | yes       |
-| `search-params.ts`: leave descending ID sort out of the URL                                    | yes        | no    | yes       |
+| `search-params.ts`: leave descending ID sort out of the URL                                    | yes        | yes   | yes       |
 | `search-params.ts`: stop URL-encoding choice values                                            | no         | yes   | yes       |
 | `search-params.ts`: keep at most 5 countries instead of `MAX_CHOICES`                          | no         | no    | yes       |
 

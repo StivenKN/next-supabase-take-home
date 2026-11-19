@@ -402,7 +402,7 @@ const stateArb: fc.Arbitrary<ExplorerState> = fc.record({
 
 function envInteger(name: string): number | undefined {
   const raw = process.env[name];
-  if (raw === undefined) return undefined;
+  if (raw === undefined || raw === "") return undefined;
   const value = Number(raw);
   if (!Number.isInteger(value))
     throw new Error(`${name}=${raw} is not an integer`);
@@ -418,7 +418,7 @@ const SEED = envInteger("VERIFY_SEED");
  * bounds on the lowest and highest value, min equal to max, min above max,
  * each flag on its own, single values of each choice filter, and country
  * values that need URL encoding or look like PostgREST syntax. Sorts rotate
- * through SORT_KEYS.
+ * through SORT_KEYS, ascending on the first pass and descending on the next.
  */
 function boundaryViews(): ExplorerState[] {
   const filters: Partial<ExplorerState>[] = [];
@@ -460,7 +460,7 @@ function boundaryViews(): ExplorerState[] {
     ...filter,
     sort: {
       column: SORT_KEYS[index % SORT_KEYS.length] ?? "id",
-      ascending: index % 2 === 0,
+      ascending: Math.floor(index / SORT_KEYS.length) % 2 === 0,
     },
   }));
 }
