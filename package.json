@@ -17,6 +17,7 @@
     "typecheck": "next typegen && tsc-rs --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
+    "verify:pagination": "vitest run --config vitest.verify.config.mts",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:run",
     "prepare": "simple-git-hooks",
     "evals:exercise": "node evals/exercise/run.ts"
@@ -48,6 +49,7 @@
     "concurrently": "^9.2.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "fast-check": "4.10.2",
     "jsdom": "^29.1.1",
     "lint-staged": "17.6.0",
     "oxfmt": "0.79.0",

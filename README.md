@@ -241,6 +241,8 @@ The country list, the total row count, and the min and max of each range come fr
 
 Only columns with an index are sortable: id, age, country, caffeine, coffee, sleep, heart rate, and BMI. Every sort adds `id` as a tiebreaker. Without it, rows with the same age could swap places between requests and appear on two pages or on none.
 
+`pnpm verify:pagination` checks the paging against the CSV. It walks every page of three sets of views, following the links the app builds for each page: every sort with no filter, a few dozen fixed edge cases, and 100 random filter combinations. It fails if a matching row is shown twice, shown on no page, or shown out of order. CI runs it on every pull request with a new random seed. That finds more over time, but it also means a pull request can fail on a bug it did not add. The failure prints the seed, so `VERIFY_SEED=<seed> pnpm verify:pagination` reproduces it on any branch. [.agents/skills/verify-coffee-health-pagination/SKILL.md](.agents/skills/verify-coffee-health-pagination/SKILL.md) says what it covers and what it does not.
+
 ### Scale
 
 I copied the dataset 200 times into a 2 million row table with the same indexes and ran each query shape the page can produce. [scripts/bench-scale.sql](scripts/bench-scale.sql) reproduces this. Separately, the `scale/million-rows` eval in [evals/exercise](evals/exercise/) grows the table to 1,000,000 rows and requests deep pages through the running app. CI fails if any response takes more than 2 seconds, and on my machine the slowest took 175 ms. The times below are single runs of `EXPLAIN ANALYZE` on Postgres 17 in Docker on a laptop, so read them as orders of magnitude.
@@ -527,6 +529,8 @@ Las dos decisiones son las simples, y las dos tienen un costo a escala que la si
 La lista de países, el total de filas y el mínimo y máximo de cada rango salen de una función SQL, `coffee_health_summary()`. Su resultado no depende de los filtros, así que Next.js lo guarda en caché con `"use cache"` y lo actualiza en segundo plano cuando tiene más de un minuto.
 
 Solo se puede ordenar por columnas con índice: id, edad, país, cafeína, café, sueño, pulso e IMC. Cada orden agrega `id` como desempate. Sin él, las filas con la misma edad podrían cambiar de lugar entre peticiones y salir en dos páginas o en ninguna.
+
+`pnpm verify:pagination` comprueba la paginación contra el CSV. Recorre todas las páginas de tres grupos de vistas, siguiendo los enlaces que la app arma para cada página: cada orden sin filtros, unas decenas de casos límite fijos y 100 combinaciones de filtros al azar. Falla si una fila que coincide sale dos veces, no sale en ninguna página o sale fuera de orden. CI lo ejecuta en cada pull request con una semilla al azar distinta. Así encuentra más con el tiempo, pero un pull request puede fallar por un error que no introdujo. El fallo imprime la semilla, así que `VERIFY_SEED=<semilla> pnpm verify:pagination` lo reproduce en cualquier rama. [.agents/skills/verify-coffee-health-pagination/SKILL.md](.agents/skills/verify-coffee-health-pagination/SKILL.md) explica qué cubre y qué no.
 
 ### Escala
 
