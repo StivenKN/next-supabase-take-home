@@ -25,7 +25,8 @@ export function TableViewport({ children }: { children: React.ReactNode }) {
         // A scrolling area has to be reachable with the keyboard.
         tabIndex={0}
         className={cn(
-          "peer h-full overflow-auto outline-none transition-opacity",
+          // The scroll padding is the pinned ID column's width.
+          "peer h-full scroll-pl-16 overflow-auto outline-none transition-opacity",
           // Wait a moment before dimming so a fast answer does not flicker.
           isPending && "opacity-55 delay-150",
         )}

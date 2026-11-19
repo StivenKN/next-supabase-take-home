@@ -30,6 +30,14 @@ export function ColumnHead({
   const ascending = sorted
     ? !state.sort.ascending
     : sortKey !== null && ASCENDING_FIRST.includes(sortKey);
+  const sortTitle =
+    sortKey === "country"
+      ? ascending
+        ? t.sortAToZ
+        : t.sortZToA
+      : ascending
+        ? t.sortAscending
+        : t.sortDescending;
   const Icon = !sorted
     ? ChevronsUpDown
     : state.sort.ascending
@@ -50,9 +58,14 @@ export function ColumnHead({
       ) : (
         <StateLink
           state={{ ...state, sort: { column: sortKey, ascending }, page: 1 }}
-          title={fill(ascending ? t.sortAscending : t.sortDescending, {
-            label: sortLabel,
-          })}
+          title={fill(sortTitle, { label: sortLabel })}
+          // Chrome does not scroll a focused link out from under the pinned
+          // ID column or in from beyond the edge of the scroller.
+          onFocus={(event) =>
+            event.currentTarget
+              .closest("th")
+              ?.scrollIntoView({ block: "nearest", inline: "nearest" })
+          }
           className={cn(
             "-mx-1.5 inline-flex h-7 items-center gap-1 rounded-sm px-1.5 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
             align === "right" && "flex-row-reverse",

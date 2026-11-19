@@ -43,7 +43,10 @@ function isEnumKey(key: ChoiceKey): key is EnumKey {
   return key in ENUM_OPTIONS;
 }
 
-function parseChoices(key: ChoiceKey, raw: string | undefined): string[] {
+export function parseChoices(
+  key: ChoiceKey,
+  raw: string | undefined,
+): string[] {
   if (!raw) return [];
   const values = [
     ...new Set(
@@ -64,6 +67,19 @@ function parseChoices(key: ChoiceKey, raw: string | undefined): string[] {
     .filter((value) => value.length <= MAX_VALUE_LENGTH && !/["\\]/.test(value))
     .slice(0, MAX_CHOICES)
     .sort((a, b) => a.localeCompare(b, "en"));
+}
+
+/**
+ * A bound as a person types it in a range field: "6,55" and "6.55" both give
+ * 6.6 for a column with one decimal. The result always passes parseBound, so
+ * what the field applies is what the URL keeps.
+ */
+export function boundFromInput(text: string, step: number): number | null {
+  if (text.trim() === "") return null;
+  const value = Number(text.replace(",", "."));
+  if (!Number.isFinite(value) || value < 0) return null;
+  const rounded = step === 1 ? Math.round(value) : Math.round(value * 10) / 10;
+  return rounded > 9999 ? null : rounded;
 }
 
 function parseBound(key: RangeKey, raw: string): number | null {

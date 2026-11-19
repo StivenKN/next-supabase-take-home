@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_STATE, type ExplorerState } from "./schema";
 import {
+  boundFromInput,
   hrefForState,
   pageWindow,
   parseSearchParams,
@@ -96,6 +97,38 @@ describe("serializeState", () => {
     );
     const params = Object.fromEntries(new URLSearchParams(query));
     expect(parseSearchParams(params)).toEqual(state);
+  });
+});
+
+describe("boundFromInput", () => {
+  it("rounds to the column's precision", () => {
+    expect(boundFromInput("6.55", 0.1)).toBe(6.6);
+    expect(boundFromInput("6,5", 0.1)).toBe(6.5);
+    expect(boundFromInput("30.4", 1)).toBe(30);
+  });
+
+  it("gives null for text that is not a usable bound", () => {
+    expect(boundFromInput("", 1)).toBeNull();
+    expect(boundFromInput("abc", 1)).toBeNull();
+    expect(boundFromInput("-3", 1)).toBeNull();
+  });
+
+  it("never gives a value the URL parser would drop", () => {
+    // 9999.96 rounds to 10000, one digit more than the parser accepts.
+    expect(boundFromInput("9999.96", 0.1)).toBeNull();
+    for (const text of ["9999.94", "0", "38.2", "80"]) {
+      const bound = boundFromInput(text, 0.1);
+      const state = parseSearchParams({ bmi: `${bound}..` });
+      expect(state.ranges.bmi.min).toBe(bound);
+    }
+  });
+});
+
+describe("parseChoices order", () => {
+  it("is the same for any order of the same values", () => {
+    const a = parseSearchParams({ country: "Germany,Brazil" });
+    const b = parseSearchParams({ country: "Brazil,Germany" });
+    expect(serializeState(a)).toBe(serializeState(b));
   });
 });
 

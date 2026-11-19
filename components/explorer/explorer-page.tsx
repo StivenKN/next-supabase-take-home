@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { DataTable } from "./data-table";
 import { ExplorerProvider } from "./explorer-context";
 import { FilterBar } from "./filter-bar";
-import { FILTER_GRID } from "./filter-grid";
+import { FILTER_COUNT, FILTER_GRID, FILTER_SECTION } from "./filter-grid";
 import { LocaleLinks, LocaleSwitch } from "./locale-switch";
 import { TableFooter } from "./pagination";
 import { MATCH_COUNT_ID, StateLink } from "./state-link";
@@ -90,12 +90,14 @@ async function Explorer({
   if (page.status === "error") {
     return <NotReady t={t} missingSchema={isMissingSchema(page.code)} />;
   }
-  // The table answered, so a failed summary means the table is empty or the
-  // summary function is missing. `pnpm db:reset` fixes both. The summary can
-  // be up to a minute old, so an unfiltered count of zero is the reliable sign
-  // of an empty table.
-  const tableIsEmpty = page.count === 0 && countActiveFilters(state) === 0;
-  if (summary === null || tableIsEmpty) return <NotReady t={t} missingSchema />;
+  // getSummary throws on an empty table, but a cached summary can be a minute
+  // old, so an unfiltered count of zero is the reliable sign of one. With
+  // filters set, a count of zero and no summary together mean the same.
+  const tableIsEmpty =
+    page.count === 0 && (summary === null || countActiveFilters(state) === 0);
+  if (tableIsEmpty) return <NotReady t={t} missingSchema />;
+  // Rows came back, so the table is fine and the summary call alone failed.
+  if (summary === null) return <NotReady t={t} missingSchema={false} />;
 
   const lastPage = Math.max(1, Math.ceil(page.count / PAGE_SIZE));
 
@@ -122,7 +124,9 @@ async function Explorer({
             last: formatNumber(locale, lastPage),
           })}
         >
-          <PanelLink state={{ ...state, page: 1 }}>{t.firstPage}</PanelLink>
+          <PanelLink state={{ ...state, page: lastPage }}>
+            {fill(t.lastPage, { last: formatNumber(locale, lastPage) })}
+          </PanelLink>
         </StatusPanel>
       ) : (
         <>
@@ -184,15 +188,15 @@ function ExplorerSkeleton({ label }: { label: string }) {
       aria-label={label}
       className="flex min-h-0 flex-1 flex-col motion-safe:animate-pulse"
     >
-      <div className="grid gap-x-6 gap-y-2 border-b px-4 py-2.5 xl:grid-cols-[12rem_minmax(0,1fr)]">
-        <div className="flex h-5 items-center xl:h-auto xl:items-start xl:py-2">
+      <div className={FILTER_SECTION}>
+        <div className={cn(FILTER_COUNT, "h-5 items-center xl:tall:h-auto")}>
           <div className="h-3 w-28 rounded-full bg-muted" />
         </div>
         <div className={cn(FILTER_GRID, "overflow-x-hidden")}>
           {Array.from({ length: 12 }, (_, index) => (
             <div
               key={index}
-              className="h-8 w-28 shrink-0 rounded-md bg-muted md:w-auto"
+              className="h-8 w-28 shrink-0 rounded-md bg-muted md:tall:w-auto"
             />
           ))}
         </div>

@@ -57,9 +57,9 @@ pnpm --version   # 10.x or later
 
    `.env.local` is gitignored and is the file Next.js loads at development time. Do not commit secrets.
 
-   To configure manually instead, copy `.env.example` to `.env.local` and fill in the values yourself, then run `pnpm db:load` to load the CSV.
+   To configure manually instead, start Supabase with `pnpm dev:supabase`, copy `.env.example` to `.env.local`, fill in the values yourself, and then run `pnpm db:load` to load the CSV.
 
-Shortcut: `pnpm bootstrap` runs steps 2 and 3 in one go. It checks Node.js and pnpm, installs dependencies, then checks that Docker is running before starting Supabase and writing `.env.local`. It is safe to re-run.
+Shortcut: `pnpm bootstrap` runs steps 2 and 3 in one go. It checks Node.js and pnpm, installs dependencies, then checks that Docker is running before starting Supabase, writing `.env.local`, and loading the CSV if the table is empty. It is safe to re-run.
 
 ### Running the app
 
@@ -81,7 +81,7 @@ pnpm dev:next       # Start Next.js only
 ### Other commands
 
 ```bash
-pnpm bootstrap   # Check prerequisites, install, start Supabase, write .env.local
+pnpm bootstrap   # Check prerequisites, install, start Supabase, write .env.local, load the CSV
 pnpm setup:env   # Start Supabase, write .env.local, load the CSV if the table is empty
 pnpm db:reset    # Recreate the local database from migrations and seed.sql, then load the CSV
 pnpm db:load     # Reload the CSV into coffee_health
@@ -185,7 +185,7 @@ During review, we will assume you understand your submission and can explain you
 
 The setup steps above are all it takes. `pnpm setup:env` starts Supabase, which applies the migrations, and then loads the CSV when the table is empty. After `pnpm dev`, the table is at [http://localhost:3000](http://localhost:3000) in English and at [http://localhost:3000/es](http://localhost:3000/es) in Spanish.
 
-`pnpx supabase db reset` on its own recreates the table and leaves it empty, because it cannot read the CSV. `pnpm db:reset` runs it and then the loader. If the table is missing or empty, the page says so and shows that command.
+The exercise's `pnpx supabase db reset` on its own recreates the table and leaves it empty, because it cannot read the CSV. `pnpm db:reset` runs the pinned CLI's `supabase db reset` and then the loader. If the table is missing or empty, the page says so and shows that command.
 
 ### Schema
 
@@ -220,13 +220,13 @@ I did not use `seed.sql`. The database container does not mount the repository, 
 
 ### Filtering
 
-The URL holds all state, for example `/?country=Brazil,Germany&age=30..50&smoking=yes&sort=-caffeine_mg&page=3`. A view is a link you can share, the back button undoes a filter, and the server renders the page with no client-side data fetching. Parsing lives in [lib/coffee-health/search-params.ts](lib/coffee-health/search-params.ts) and has unit tests. It drops anything it does not understand.
+The URL holds all state, for example `/?country=Brazil,Germany&age=30..50&smoking=yes&sort=-caffeine_mg&page=2`. A view is a link you can share, the back button undoes a filter, and the server renders the page with no client-side data fetching. Parsing lives in [lib/coffee-health/search-params.ts](lib/coffee-health/search-params.ts) and has unit tests. It drops anything it does not understand.
 
-| Filter                    | Columns                                                           | Behaviour                                                        |
-| ------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Pick any number of values | country, gender, occupation, sleep quality, stress, health issues | Rows matching any ticked value (`in`).                           |
-| Minimum and maximum       | age, coffee, sleep, BMI                                           | Inclusive. Either side can be empty. Applied when typing pauses. |
-| Yes or no                 | smokes, drinks alcohol                                            | Exact match.                                                     |
+| Filter                    | Columns                                                           | Behaviour                                                                                                             |
+| ------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Pick any number of values | country, gender, occupation, sleep quality, stress, health issues | Rows matching any ticked value (`in`).                                                                                |
+| Minimum and maximum       | age, coffee, sleep, BMI                                           | Inclusive. Either side can be empty. Applied when the panel closes, so a half-typed number does not reload the table. |
+| Yes or no                 | smokes, drinks alcohol                                            | Exact match.                                                                                                          |
 
 Filters combine with `and`. Changing a filter returns to page 1.
 
@@ -280,7 +280,7 @@ Supabase gives the `anon` role a 3 second statement timeout, which bounds the wo
 
 - English at `/` and Spanish at `/es`, each with its own root layout so `<html lang>` is right in the static HTML. The language links keep the current filters. Values stored in English (Good, Germany) are translated for display only.
 - Coffee and sleep sit side by side with bars that grow away from the line between them: amber to the left for cups, blue to the right for hours. Bars are scaled to the dataset's maximum, so they compare across pages.
-- Light and dark themes, usable at phone width, keyboard operable. Filter menus, inputs, and labels come from `components/ui`. The min and max panels use the browser's native `popover` attribute, which avoided adding a dependency.
+- Light and dark themes, usable at phone width, keyboard operable. I tested in Chromium on Linux only, at desktop and emulated phone sizes, and not with a screen reader. Filter menus, inputs, and labels come from `components/ui`. The min and max panels use the browser's native `popover` attribute, which avoided adding a dependency.
 
 ### Left out
 
@@ -344,9 +344,9 @@ pnpm --version   # 10.x o superior
 
    `.env.local` está en `.gitignore` y es el archivo que Next.js carga en desarrollo. No subas secretos al repositorio.
 
-   Para configurar manualmente, copia `.env.example` a `.env.local` y completa los valores tú mismo. Después ejecuta `pnpm db:load` para cargar el CSV.
+   Para configurar manualmente, inicia Supabase con `pnpm dev:supabase`, copia `.env.example` a `.env.local`, completa los valores tú mismo y después ejecuta `pnpm db:load` para cargar el CSV.
 
-Atajo: `pnpm bootstrap` ejecuta los pasos 2 y 3 de una vez. Comprueba Node.js y pnpm, instala las dependencias y luego comprueba que Docker esté en ejecución antes de iniciar Supabase y escribir `.env.local`. Puedes volver a ejecutarlo sin problema.
+Atajo: `pnpm bootstrap` ejecuta los pasos 2 y 3 de una vez. Comprueba Node.js y pnpm, instala las dependencias y luego comprueba que Docker esté en ejecución antes de iniciar Supabase, escribir `.env.local` y cargar el CSV si la tabla está vacía. Puedes volver a ejecutarlo sin problema.
 
 ### Ejecutar la aplicación
 
@@ -368,7 +368,7 @@ pnpm dev:next       # Iniciar solo Next.js
 ### Otros comandos
 
 ```bash
-pnpm bootstrap   # Comprobar requisitos, instalar, iniciar Supabase y escribir .env.local
+pnpm bootstrap   # Comprobar requisitos, instalar, iniciar Supabase, escribir .env.local y cargar el CSV
 pnpm setup:env   # Iniciar Supabase, escribir .env.local y cargar el CSV si la tabla está vacía
 pnpm db:reset    # Recrear la base de datos local desde las migraciones y seed.sql, y cargar el CSV
 pnpm db:load     # Recargar el CSV en coffee_health
@@ -472,7 +472,7 @@ Durante la revisión, asumiremos que entiendes tu entrega y que puedes explicar 
 
 Los pasos de configuración de arriba son todo lo necesario. `pnpm setup:env` inicia Supabase, que aplica las migraciones, y después carga el CSV si la tabla está vacía. Tras `pnpm dev`, la tabla está en [http://localhost:3000](http://localhost:3000) en inglés y en [http://localhost:3000/es](http://localhost:3000/es) en español.
 
-`pnpx supabase db reset` por sí solo recrea la tabla y la deja vacía, porque no puede leer el CSV. `pnpm db:reset` lo ejecuta y después corre el cargador. Si la tabla falta o está vacía, la página lo dice y muestra ese comando.
+El `pnpx supabase db reset` del ejercicio por sí solo recrea la tabla y la deja vacía, porque no puede leer el CSV. `pnpm db:reset` ejecuta `supabase db reset` con la CLI fijada en el proyecto y después corre el cargador. Si la tabla falta o está vacía, la página lo dice y muestra ese comando.
 
 ### Esquema
 
@@ -507,13 +507,13 @@ No usé `seed.sql`. El contenedor de la base de datos no monta el repositorio, a
 
 ### Filtros
 
-La URL guarda todo el estado, por ejemplo `/es?country=Brazil,Germany&age=30..50&smoking=yes&sort=-caffeine_mg&page=3`. Una vista es un enlace que se puede compartir, el botón Atrás deshace un filtro y el servidor renderiza la página sin peticiones de datos desde el cliente. El análisis de la URL vive en [lib/coffee-health/search-params.ts](lib/coffee-health/search-params.ts) y tiene pruebas unitarias. Descarta todo lo que no entiende.
+La URL guarda todo el estado, por ejemplo `/es?country=Brazil,Germany&age=30..50&smoking=yes&sort=-caffeine_mg&page=2`. Una vista es un enlace que se puede compartir, el botón Atrás deshace un filtro y el servidor renderiza la página sin peticiones de datos desde el cliente. El análisis de la URL vive en [lib/coffee-health/search-params.ts](lib/coffee-health/search-params.ts) y tiene pruebas unitarias. Descarta todo lo que no entiende.
 
-| Filtro                             | Columnas                                                               | Comportamiento                                                                             |
-| ---------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Elegir cualquier número de valores | país, género, ocupación, calidad del sueño, estrés, problemas de salud | Filas que coinciden con cualquiera de los valores marcados (`in`).                         |
-| Mínimo y máximo                    | edad, café, sueño, IMC                                                 | Inclusivo. Cualquiera de los dos lados puede quedar vacío. Se aplica al dejar de escribir. |
-| Sí o no                            | fuma, bebe alcohol                                                     | Coincidencia exacta.                                                                       |
+| Filtro                             | Columnas                                                               | Comportamiento                                                                                                                                     |
+| ---------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Elegir cualquier número de valores | país, género, ocupación, calidad del sueño, estrés, problemas de salud | Filas que coinciden con cualquiera de los valores marcados (`in`).                                                                                 |
+| Mínimo y máximo                    | edad, café, sueño, IMC                                                 | Inclusivo. Cualquiera de los dos lados puede quedar vacío. Se aplica al cerrar el panel, para que un número a medio escribir no recargue la tabla. |
+| Sí o no                            | fuma, bebe alcohol                                                     | Coincidencia exacta.                                                                                                                               |
 
 Los filtros se combinan con `and`. Cambiar un filtro vuelve a la página 1.
 
@@ -567,7 +567,7 @@ Supabase le da al rol `anon` un tiempo máximo de 3 segundos por consulta, lo qu
 
 - Inglés en `/` y español en `/es`, cada uno con su propio layout raíz para que `<html lang>` sea correcto en el HTML estático. Los enlaces de idioma conservan los filtros actuales. Los valores guardados en inglés (Good, Germany) se traducen solo al mostrarlos.
 - Café y sueño van lado a lado con barras que crecen alejándose de la línea que los separa: ámbar hacia la izquierda para las tazas, azul hacia la derecha para las horas. Las barras usan como escala el máximo del conjunto de datos, así que se pueden comparar entre páginas.
-- Temas claro y oscuro, usable en el ancho de un teléfono y operable con teclado. Los menús de filtros, los campos y las etiquetas vienen de `components/ui`. Los paneles de mínimo y máximo usan el atributo nativo `popover` del navegador, lo que evitó agregar una dependencia.
+- Temas claro y oscuro, usable en el ancho de un teléfono y operable con teclado. Probé solo en Chromium sobre Linux, en tamaños de escritorio y de teléfono emulado, y sin lector de pantalla. Los menús de filtros, los campos y las etiquetas vienen de `components/ui`. Los paneles de mínimo y máximo usan el atributo nativo `popover` del navegador, lo que evitó agregar una dependencia.
 
 ### Lo que quedó fuera
 

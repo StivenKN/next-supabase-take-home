@@ -41,6 +41,8 @@ export type Dictionary = {
   rowsRange: string;
   sortAscending: string;
   sortDescending: string;
+  sortAToZ: string;
+  sortZToA: string;
   pagination: string;
   previous: string;
   next: string;
@@ -54,7 +56,7 @@ export type Dictionary = {
   emptyBody: string;
   outOfRangeTitle: string;
   outOfRangeBody: string;
-  firstPage: string;
+  lastPage: string;
   setupTitle: string;
   setupBody: string;
   unreachableTitle: string;
@@ -123,6 +125,8 @@ const en: Dictionary = {
   rowsRange: "Showing {from} to {to}",
   sortAscending: "Sort by {label}, lowest first",
   sortDescending: "Sort by {label}, highest first",
+  sortAToZ: "Sort by {label}, A to Z",
+  sortZToA: "Sort by {label}, Z to A",
   pagination: "Pages",
   previous: "Previous",
   next: "Next",
@@ -136,7 +140,7 @@ const en: Dictionary = {
   emptyBody: "Widen a range or remove a filter to see people again.",
   outOfRangeTitle: "There is no page {page}",
   outOfRangeBody: "This view ends at page {last}.",
-  firstPage: "Go to the first page",
+  lastPage: "Go to page {last}",
   setupTitle: "The dataset is not loaded yet",
   setupBody:
     "Run this in the project folder to create the table and load the CSV, then reload the page.",
@@ -180,7 +184,7 @@ const es: Dictionary = {
     heart_rate: "Pulso",
     bmi: "IMC",
     physical_activity_hours: "Actividad",
-    health_issues: "Problemas de salud",
+    health_issues: "Salud",
     smoking: "Fuma",
     alcohol_consumption: "Bebe alcohol",
   },
@@ -247,6 +251,8 @@ const es: Dictionary = {
   rowsRange: "Mostrando {from} a {to}",
   sortAscending: "Ordenar por {label}, de menor a mayor",
   sortDescending: "Ordenar por {label}, de mayor a menor",
+  sortAToZ: "Ordenar por {label}, de la A a la Z",
+  sortZToA: "Ordenar por {label}, de la Z a la A",
   pagination: "Páginas",
   previous: "Anterior",
   next: "Siguiente",
@@ -260,7 +266,7 @@ const es: Dictionary = {
   emptyBody: "Amplía un rango o quita un filtro para volver a ver personas.",
   outOfRangeTitle: "No existe la página {page}",
   outOfRangeBody: "Esta vista termina en la página {last}.",
-  firstPage: "Ir a la primera página",
+  lastPage: "Ir a la página {last}",
   setupTitle: "El conjunto de datos aún no está cargado",
   setupBody:
     "Ejecuta esto en la carpeta del proyecto para crear la tabla y cargar el CSV. Después recarga la página.",

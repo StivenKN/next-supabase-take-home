@@ -116,6 +116,7 @@ export async function getPage(state: ExplorerState): Promise<PageResult> {
 export function isMissingSchema(code: string | undefined): boolean {
   return (
     code === "PGRST205" || // table not in the API schema cache
-    code === "42P01" // undefined_table
+    code === "42P01" || // undefined_table
+    code === "42703" // undefined_column: a coffee_health table of another shape
   );
 }

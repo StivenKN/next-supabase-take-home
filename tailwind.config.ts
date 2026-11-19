@@ -11,6 +11,9 @@ export default {
   ],
   theme: {
     extend: {
+      screens: {
+        tall: { raw: "(min-height: 640px)" },
+      },
       fontFamily: {
         sans: ["var(--font-archivo)", "system-ui", "sans-serif"],
       },

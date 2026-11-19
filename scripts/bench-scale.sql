@@ -4,8 +4,8 @@
 --
 -- It builds bench.coffee_health (200 copies of public.coffee_health with the
 -- same indexes), runs each query shape the page can produce under
--- EXPLAIN ANALYZE, and drops the bench schema at the end. NOTES.md records the
--- results.
+-- EXPLAIN ANALYZE, and drops the bench schema at the end. The Scale section of
+-- README.md records the results.
 \timing on
 drop schema if exists bench cascade;
 create schema bench;

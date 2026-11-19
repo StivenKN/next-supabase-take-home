@@ -33,9 +33,13 @@ import {
   type RangeKey,
   type Summary,
 } from "@/lib/coffee-health/schema";
+import {
+  boundFromInput,
+  parseChoices,
+} from "@/lib/coffee-health/search-params";
 import { cn } from "@/lib/utils";
 import { useExplorer } from "./explorer-context";
-import { FILTER_GRID } from "./filter-grid";
+import { FILTER_COUNT, FILTER_GRID, FILTER_SECTION } from "./filter-grid";
 import { MATCH_COUNT_ID, StateLink } from "./state-link";
 
 export function FilterBar({
@@ -50,20 +54,23 @@ export function FilterBar({
 
   // The count describes the rows on screen, so its wording follows the view
   // the server rendered, not the one still loading.
-  const total = formatNumber(locale, summary.total);
+  // Without filters the count is the whole table, and it is fresher than the
+  // cached summary, which the pager below never reads.
   const matchText =
     countActiveFilters(renderedState) > 0
-      ? fill(t.matchOfTotal, { count: formatNumber(locale, count), total })
-      : fill(summary.total === 1 ? t.matchOne : t.matchMany, { count: total });
+      ? fill(t.matchOfTotal, {
+          count: formatNumber(locale, count),
+          total: formatNumber(locale, summary.total),
+        })
+      : fill(count === 1 ? t.matchOne : t.matchMany, {
+          count: formatNumber(locale, count),
+        });
 
   return (
-    <section
-      aria-label={t.filtersLabel}
-      className="grid gap-x-6 gap-y-2 border-b bg-background px-4 py-2.5 xl:grid-cols-[12rem_minmax(0,1fr)]"
-    >
+    <section aria-label={t.filtersLabel} className={FILTER_SECTION}>
       {/* The count comes first and sits beside the filters on wide screens,
           so an open menu never covers the number it is changing. */}
-      <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 xl:flex-col xl:gap-y-1 xl:py-1">
+      <div className={FILTER_COUNT}>
         <p
           id={MATCH_COUNT_ID}
           tabIndex={-1}
@@ -87,11 +94,11 @@ export function FilterBar({
         )}
       </div>
 
-      {/* A fixed grid from md up: a filter keeps its cell whatever it is set
-          to, so setting one never moves the table. The column counts leave
-          room for the longest Spanish label and value. Below md the row
-          scrolls sideways, and its padding keeps focus rings from being
-          clipped. */}
+      {/* A fixed grid in a window at least 768px wide and 640px tall: a
+          filter keeps its cell whatever it is set to, so setting one never
+          moves the table. The column counts leave room for the longest
+          Spanish label and value. A smaller window gets one row that scrolls
+          sideways, which leaves its height to the table. */}
       <div className={FILTER_GRID}>
         {CHOICE_KEYS.map((key) => (
           <ChoiceFilter
@@ -123,15 +130,27 @@ function FilterFrame({
   active,
   clearLabel,
   onClear,
+  onClearPress,
+  onFocusLeave,
   children,
 }: {
   active: boolean;
   clearLabel: string;
   onClear: () => void;
+  /** Runs when the clear button is pressed, before its click. */
+  onClearPress?: () => void;
+  /** Runs when keyboard focus moves from inside the frame to outside it. */
+  onFocusLeave?: () => void;
   children: React.ReactNode;
 }) {
   return (
     <div
+      onBlur={(event) => {
+        const next = event.relatedTarget;
+        if (next instanceof Node && !event.currentTarget.contains(next)) {
+          onFocusLeave?.();
+        }
+      }}
       className={cn(
         "flex h-8 min-w-0 shrink-0 items-stretch rounded-md border text-[13px]",
         active
@@ -145,6 +164,7 @@ function FilterFrame({
           type="button"
           aria-label={clearLabel}
           title={clearLabel}
+          onPointerDown={onClearPress}
           onClick={(event) => {
             // This button is about to disappear. Hand focus to the filter's
             // own button first so the keyboard stays where it was.
@@ -165,13 +185,18 @@ const FilterButton = forwardRef<
   Omit<React.ComponentProps<"button">, "value"> & {
     label: string;
     value: string | null;
+    /** Everything the filter is set to, when `value` shortens it. */
+    fullValue?: string;
   }
->(function FilterButton({ label, value, className, ...props }, ref) {
+>(function FilterButton(
+  { label, value, fullValue = value ?? undefined, className, ...props },
+  ref,
+) {
   return (
     <button
       ref={ref}
       type="button"
-      title={value === null ? undefined : `${label}: ${value}`}
+      title={fullValue === undefined ? undefined : `${label}: ${fullValue}`}
       className={cn(
         "flex min-w-0 flex-1 items-center gap-1.5 whitespace-nowrap rounded-[5px] pl-2.5 pr-2 outline-none hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-ring",
         className,
@@ -222,9 +247,16 @@ function ChoiceFilter({
     if (!options.includes(value)) items.push({ value, label: value });
   }
 
+  // In the URL parser's order, so the button does not change when the server
+  // answers with the same selection sorted.
   const setSelected = (values: string[]) =>
     navigate(
-      withFilters(state, { choices: { ...state.choices, [filter]: values } }),
+      withFilters(state, {
+        choices: {
+          ...state.choices,
+          [filter]: parseChoices(filter, values.join(",")),
+        },
+      }),
     );
 
   const [firstSelected] = selected;
@@ -243,7 +275,17 @@ function ChoiceFilter({
       {/* Not modal: a click on another filter should open it, not just close this one. */}
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
-          <FilterButton label={label} value={value} />
+          <FilterButton
+            label={label}
+            value={value}
+            fullValue={
+              selected.length > 1
+                ? selected
+                    .map((choice) => valueLabel(t, choice, filter))
+                    .join(", ")
+                : undefined
+            }
+          />
         </DropdownMenuTrigger>
         {/* The height ends halfway through a row, which shows the list goes on. */}
         <DropdownMenuContent
@@ -319,7 +361,6 @@ function FlagFilter({ filter }: { filter: FlagKey }) {
 }
 
 const PANEL_WIDTH = 248;
-const TYPING_PAUSE_MS = 350;
 
 function RangeFilter({
   filter,
@@ -339,45 +380,23 @@ function RangeFilter({
   const panelRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
 
-  const setRange = (next: Range, options?: { replace?: boolean }) =>
+  const setRange = (next: Range) =>
     navigate(
       withFilters(state, { ranges: { ...state.ranges, [filter]: next } }),
-      options,
     );
 
-  // A typed range is applied once typing pauses, or at once when the panel
-  // closes. `visit` tracks one stay in the open panel.
-  const visit = useRef<{
-    applied: Range;
-    pending: Range | null;
-    timer: ReturnType<typeof setTimeout> | undefined;
-    hasApplied: boolean;
-  }>({ applied: range, pending: null, timer: undefined, hasApplied: false });
+  // What the fields hold while the panel is open, or null when that is not a
+  // range to apply. It is applied when the panel closes: on Enter, Escape, a
+  // click elsewhere, or focus leaving. Applying on every keystroke would
+  // reload the table for each half-typed number.
+  const typed = useRef<Range | null>(null);
 
-  const applyPending = () => {
-    const current = visit.current;
-    clearTimeout(current.timer);
-    const next = current.pending;
-    current.pending = null;
-    if (
-      next === null ||
-      (next.min === current.applied.min && next.max === current.applied.max)
-    ) {
-      return;
+  const applyTyped = () => {
+    const next = typed.current;
+    typed.current = null;
+    if (next && (next.min !== range.min || next.max !== range.max)) {
+      setRange(next);
     }
-    // The first change in a visit adds a history entry, so Back returns to
-    // the view from before the panel opened. Later changes replace that entry
-    // instead of stacking one per keystroke.
-    setRange(next, { replace: current.hasApplied });
-    current.applied = next;
-    current.hasApplied = true;
-  };
-
-  const editRange = (next: Range) => {
-    const current = visit.current;
-    current.pending = next;
-    clearTimeout(current.timer);
-    current.timer = setTimeout(applyPending, TYPING_PAUSE_MS);
   };
 
   // The panel is a native popover: the browser puts it above everything else,
@@ -431,7 +450,18 @@ function RangeFilter({
     <FilterFrame
       active={active}
       clearLabel={fill(t.clearFilter, { label })}
-      onClear={() => setRange({ min: null, max: null })}
+      // Pressing the clear button also closes the panel. Dropping the typed
+      // range first keeps that close from applying it.
+      onClearPress={() => {
+        typed.current = null;
+      }}
+      onClear={() => {
+        typed.current = null;
+        setRange({ min: null, max: null });
+      }}
+      onFocusLeave={() => {
+        if (open) panelRef.current?.hidePopover();
+      }}
     >
       <FilterButton
         ref={buttonRef}
@@ -448,24 +478,13 @@ function RangeFilter({
         }}
         onToggle={(event) => {
           if (event.newState === "open") {
-            visit.current = {
-              applied: range,
-              pending: null,
-              timer: undefined,
-              hasApplied: false,
-            };
+            typed.current = null;
             watchForMove();
             setOpen(true);
           } else {
             closeOnMove.current?.abort();
-            applyPending();
+            applyTyped();
             setOpen(false);
-          }
-        }}
-        onBlur={(event) => {
-          const next = event.relatedTarget;
-          if (next instanceof Node && !event.currentTarget.contains(next)) {
-            event.currentTarget.hidePopover();
           }
         }}
         role="group"
@@ -480,22 +499,15 @@ function RangeFilter({
             range={range}
             bounds={bounds}
             step={RANGE_STEPS[filter]}
-            onEdit={editRange}
+            onEdit={(next) => {
+              typed.current = next;
+            }}
             onDone={() => panelRef.current?.hidePopover()}
           />
         )}
       </div>
     </FilterFrame>
   );
-}
-
-function parseBound(text: string, step: number): number | null {
-  if (text.trim() === "") return null;
-  const value = Number(text.replace(",", "."));
-  if (!Number.isFinite(value) || value < 0) return null;
-  const rounded = step === 1 ? Math.round(value) : Math.round(value * 10) / 10;
-  // The URL parser accepts at most four digits before the decimal point.
-  return rounded > 9999 ? null : rounded;
 }
 
 function RangeFields({
@@ -510,7 +522,8 @@ function RangeFields({
   range: Range;
   bounds: [number | null, number | null];
   step: number;
-  onEdit: (range: Range) => void;
+  /** Null when the fields do not hold a range that can be applied. */
+  onEdit: (range: Range | null) => void;
   onDone: () => void;
 }) {
   const { t, locale } = useExplorer();
@@ -522,8 +535,8 @@ function RangeFields({
     max: range.max?.toString() ?? "",
   });
 
-  const min = parseBound(draft.min, step);
-  const max = parseBound(draft.max, step);
+  const min = boundFromInput(draft.min, step);
+  const max = boundFromInput(draft.max, step);
   const inverted = min !== null && max !== null && min > max;
   const [lowest, highest] = bounds;
   const digits = step === 1 ? 0 : 1;
@@ -549,14 +562,17 @@ function RangeFields({
         onChange={(event) => {
           const next = { ...draft, [side]: event.target.value };
           setDraft(next);
-          onEdit({
-            min: parseBound(next.min, step),
-            max: parseBound(next.max, step),
-          });
+          const range = {
+            min: boundFromInput(next.min, step),
+            max: boundFromInput(next.max, step),
+          };
+          const isInverted =
+            range.min !== null && range.max !== null && range.min > range.max;
+          onEdit(isInverted ? null : range);
         }}
         // Show what was applied: "6.55" becomes "6.6", the value in the URL.
         onBlur={() => {
-          const applied = parseBound(draft[side], step);
+          const applied = boundFromInput(draft[side], step);
           setDraft({ ...draft, [side]: applied?.toString() ?? "" });
         }}
         onKeyDown={(event) => {
