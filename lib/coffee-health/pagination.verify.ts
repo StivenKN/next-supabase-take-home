@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import fc from "fast-check";
-import { describe, expect, it } from "vitest";
+import { describe, it } from "vitest";
 import { getPage, type PageResult } from "./queries";
 import {
   CHOICE_KEYS,
@@ -21,18 +21,8 @@ import {
 } from "./schema";
 import { hrefForState, parseSearchParams } from "./search-params";
 
-/*
- * Property: for any filters and sort a person can put in the URL, following
- * the pager's links from page 1 to the last page shows every row of the CSV
- * that matches the filters exactly once, in the chosen order, and every page
- * reports the same match count. The page after the last says it is past the
- * end. See .agents/skills/verify-coffee-health-pagination/SKILL.md.
- *
- * The expected rows come from data/synthetic_coffee_health_10000.csv, not from
- * the app. The rows shown come from the app's own getPage() against the local
- * Supabase stack, with each page's state read back from the link the pager
- * renders (hrefForState -> URL -> parseSearchParams), as the server does.
- */
+// What this checks, its bounds, and how to read a failure:
+// .agents/skills/verify-coffee-health-pagination/SKILL.md.
 
 type Key = ChoiceKey | RangeKey | FlagKey | SortKey;
 type CsvRow = { id: number } & Record<Key, string | number | boolean>;
@@ -100,7 +90,10 @@ function sortValue(id: number, column: SortKey): string | number {
   return row[column] as string | number;
 }
 
-/** What the server sees when a person opens the link the app renders for this state. */
+/**
+ * What the server sees when a person opens the link the app builds for this
+ * state: explorer-page.tsx passes the URL's search params to parseSearchParams.
+ */
 function followLink(state: ExplorerState): ExplorerState {
   const href = hrefForState("/", state);
   const params: Record<string, string | string[]> = {};
@@ -135,28 +128,72 @@ function describeState(state: ExplorerState): string {
   return parts.join(", ");
 }
 
+/** Same filters, sort, and page; the order of ticked values does not matter. */
 function sameMeaning(a: ExplorerState, b: ExplorerState): boolean {
-  const asSets = (state: ExplorerState) => ({
-    ...state,
-    choices: Object.fromEntries(
-      CHOICE_KEYS.map((key) => [key, [...state.choices[key]].sort()]),
-    ),
-  });
+  const canonical = (state: ExplorerState) =>
+    JSON.stringify([
+      CHOICE_KEYS.map((key) => [...state.choices[key]].sort()),
+      RANGE_KEYS.map((key) => [state.ranges[key].min, state.ranges[key].max]),
+      FLAG_KEYS.map((key) => state.flags[key]),
+      state.sort.column,
+      state.sort.ascending,
+      state.page,
+    ]);
+  return canonical(a) === canonical(b);
+}
+
+/** Row count, or what went wrong, read without the app's query code. */
+async function tableCount(): Promise<number | string> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return "no Supabase URL or key (.env.local is missing)";
   try {
-    expect(asSets(a)).toEqual(asSets(b));
-    return true;
-  } catch {
-    return false;
+    const { count, error } = await createClient(url, key, {
+      auth: { persistSession: false },
+    })
+      .from("coffee_health")
+      .select("id", { count: "exact", head: true });
+    return error
+      ? `error ${error.code} ${error.message}`
+      : (count ?? "no count");
+  } catch (cause) {
+    return `no answer from ${url} (${String(cause)})`;
   }
 }
 
-/**
- * Walks every page of `start`'s results through the pager's links and throws
- * a plain-language error at the first difference from the CSV.
- */
+function setupError(found: number | string): Error {
+  return new Error(
+    `Setup: expected public.coffee_health to hold the ${CSV.length} CSV rows, found ${found}. ` +
+      "Start Supabase, run `pnpm setup:env`, then `pnpm db:load`.",
+  );
+}
+
 const walked = { states: 0, empty: 0, pages: 0 };
 
+/**
+ * Walks every page of `start`'s results through the links the app builds and
+ * throws a plain-language error at the first difference from the CSV. If the
+ * table no longer holds the CSV's rows when that happens, the error says the
+ * setup changed instead, because the failure then says nothing about the code.
+ */
 async function walk(start: ExplorerState): Promise<void> {
+  try {
+    await walkPages(start);
+  } catch (failure) {
+    const found = await tableCount();
+    if (found !== CSV.length) {
+      throw new Error(
+        `${setupError(found).message} (Counted again after a page check failed, so that failure says nothing about the code.)`,
+        {
+          cause: failure,
+        },
+      );
+    }
+    throw failure;
+  }
+}
+
+async function walkPages(start: ExplorerState): Promise<void> {
   const where = `[${describeState(start)}] (${hrefForState("/", { ...start, page: 1 })})`;
   const first = followLink({ ...start, page: 1 });
   if (!sameMeaning(first, { ...start, page: 1 })) {
@@ -166,12 +203,9 @@ async function walk(start: ExplorerState): Promise<void> {
   }
 
   const { column, ascending } = first.sort;
-  const expected = CSV.filter((row) => matches(row, first))
-    .map((row) => row.id)
-    .sort((a, b) => {
-      const byKey = compareKeys(sortValue(a, column), sortValue(b, column));
-      return (ascending ? 1 : -1) * (byKey !== 0 ? byKey : a - b);
-    });
+  const expected = CSV.filter((row) => matches(row, first)).map(
+    (row) => row.id,
+  );
   const last = Math.max(1, Math.ceil(expected.length / PAGE_SIZE));
   walked.states += 1;
   walked.pages += last;
@@ -246,8 +280,10 @@ async function walk(start: ExplorerState): Promise<void> {
     }
   }
 
-  // PostgREST treats the page right after the last and pages further out
-  // differently (getPage handles both), so check one of each.
+  // getPage handles two PostgREST answers past the end: an empty page when the
+  // offset equals the match count (the page right after the last, when the
+  // count is a multiple of PAGE_SIZE, as in the unfiltered walks), and error
+  // PGRST103 when the offset is larger.
   for (const page of [last + 1, last + 3]) {
     const result = await getPage(followLink({ ...first, page }));
     if (result.status !== "out-of-range" || result.count !== expected.length) {
@@ -310,9 +346,17 @@ const junkCountry = fc
     (value) => value === value.trim() && value !== "" && !/[",\\]/.test(value),
   );
 
+function choiceOptions(key: ChoiceKey): readonly string[] {
+  if (key === "country") return COUNTRIES;
+  if (key in ENUM_OPTIONS)
+    return ENUM_OPTIONS[key as keyof typeof ENUM_OPTIONS];
+  throw new Error(
+    `${key} is a choice filter without enum options: add its values to choiceOptions`,
+  );
+}
+
 function choiceArb(key: ChoiceKey): fc.Arbitrary<string[]> {
-  const options: readonly string[] =
-    key === "country" ? COUNTRIES : ENUM_OPTIONS[key];
+  const options = choiceOptions(key);
   const picked =
     key === "country"
       ? fc
@@ -344,7 +388,11 @@ const stateArb: fc.Arbitrary<ExplorerState> = fc.record({
       [K in RangeKey]: fc.Arbitrary<Range>;
     },
   ),
-  flags: fc.record({ smoking: flagArb, alcohol_consumption: flagArb }),
+  flags: fc.record(
+    Object.fromEntries(FLAG_KEYS.map((key) => [key, flagArb])) as {
+      [K in FlagKey]: fc.Arbitrary<boolean | null>;
+    },
+  ),
   sort: fc.record({
     column: fc.constantFrom(...SORT_KEYS),
     ascending: fc.boolean(),
@@ -352,30 +400,75 @@ const stateArb: fc.Arbitrary<ExplorerState> = fc.record({
   page: fc.constant(1),
 });
 
-const RUNS = Number(process.env.VERIFY_RUNS ?? 100);
-const SEED =
-  process.env.VERIFY_SEED === undefined
-    ? undefined
-    : Number(process.env.VERIFY_SEED);
+function envInteger(name: string): number | undefined {
+  const raw = process.env[name];
+  if (raw === undefined) return undefined;
+  const value = Number(raw);
+  if (!Number.isInteger(value))
+    throw new Error(`${name}=${raw} is not an integer`);
+  return value;
+}
+
+const RUNS = envInteger("VERIFY_RUNS") ?? 100;
+if (RUNS < 1) throw new Error(`VERIFY_RUNS=${RUNS} would walk no views`);
+const SEED = envInteger("VERIFY_SEED");
+
+/**
+ * Views at the edges that random draws reach only sometimes: a bound of 0,
+ * bounds on the lowest and highest value, min equal to max, min above max,
+ * each flag on its own, single values of each choice filter, and country
+ * values that need URL encoding or look like PostgREST syntax. Sorts rotate
+ * through SORT_KEYS.
+ */
+function boundaryViews(): ExplorerState[] {
+  const filters: Partial<ExplorerState>[] = [];
+  for (const key of RANGE_KEYS) {
+    const values = CSV.map((row) => Number(row[key]));
+    const lowest = Math.min(...values);
+    const highest = Math.max(...values);
+    const ranges: Range[] = [
+      { min: null, max: 0 },
+      { min: lowest, max: lowest },
+      { min: highest, max: highest },
+      { min: null, max: lowest },
+      { min: highest, max: null },
+      { min: highest, max: lowest },
+    ];
+    for (const range of ranges) {
+      filters.push({ ranges: { ...DEFAULT_STATE.ranges, [key]: range } });
+    }
+  }
+  for (const key of FLAG_KEYS) {
+    for (const flag of [true, false]) {
+      filters.push({ flags: { ...DEFAULT_STATE.flags, [key]: flag } });
+    }
+  }
+  for (const key of CHOICE_KEYS) {
+    for (const value of choiceOptions(key).slice(0, 2)) {
+      filters.push({ choices: { ...DEFAULT_STATE.choices, [key]: [value] } });
+    }
+  }
+  for (const values of [
+    ["South Korea", "#"],
+    ["a&b=c", "100%", "x+y"],
+    ["Brazil)", "or(age.eq.30)", "Japan"],
+  ]) {
+    filters.push({ choices: { ...DEFAULT_STATE.choices, country: values } });
+  }
+  return filters.map((filter, index) => ({
+    ...DEFAULT_STATE,
+    ...filter,
+    sort: {
+      column: SORT_KEYS[index % SORT_KEYS.length] ?? "id",
+      ascending: index % 2 === 0,
+    },
+  }));
+}
 
 describe("coffee_health pagination", () => {
   it("the database holds exactly the CSV's rows (precondition)", async () => {
-    // Counted without the app's query code, so a bug in getPage cannot pass
-    // for an empty or half-loaded table here.
-    const { count, error } = await createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
-      { auth: { persistSession: false } },
-    )
-      .from("coffee_health")
-      .select("id", { count: "exact", head: true });
-    if (error || count !== CSV.length) {
-      throw new Error(
-        `Setup: expected public.coffee_health to hold the ${CSV.length} CSV rows, ` +
-          `found ${error ? `error ${error.code} ${error.message}` : count}. ` +
-          "Start Supabase, run `pnpm setup:env`, then `pnpm db:load`.",
-      );
-    }
+    const found = await tableCount();
+    if (found !== CSV.length) throw setupError(found);
   });
 
   it("walks every page of every sort, unfiltered", async () => {
@@ -384,6 +477,10 @@ describe("coffee_health pagination", () => {
         await walk({ ...DEFAULT_STATE, sort: { column, ascending } });
       }
     }
+  });
+
+  it("walks every page of fixed boundary views", async () => {
+    for (const view of boundaryViews()) await walk(view);
   });
 
   it("walks every page of generated filters and sorts", async () => {
