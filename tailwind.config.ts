@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 import tailwindcssAnimate from "tailwindcss-animate";
 
 export default {
@@ -11,7 +12,12 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["var(--font-archivo)", "system-ui", "sans-serif"],
+      },
       colors: {
+        coffee: "hsl(var(--coffee))",
+        sleep: "hsl(var(--sleep))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {
@@ -53,6 +59,9 @@ export default {
           "5": "hsl(var(--chart-5))",
         },
       },
+      animation: {
+        "loading-sweep": "loading-sweep 1.1s ease-in-out infinite",
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
@@ -60,5 +69,12 @@ export default {
       },
     },
   },
-  plugins: [tailwindcssAnimate],
+  plugins: [
+    tailwindcssAnimate,
+    // A variant, not an entry in `screens`: a raw screen there makes Tailwind
+    // drop every `min-[...]` and `max-[...]` class.
+    plugin(({ addVariant }) =>
+      addVariant("tall", "@media (min-height: 640px)"),
+    ),
+  ],
 } satisfies Config;

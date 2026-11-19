@@ -42,3 +42,10 @@ SUPABASE_SECRET_KEY=${SECRET_KEY}
 EOF
 
 echo "Wrote .env.local"
+
+# `supabase start` creates the coffee_health table on a new database but cannot
+# load the CSV. A database that predates the table's migration needs
+# `pnpm db:reset`, so a failed load is a warning here and not a failed setup.
+if ! bash scripts/load-coffee-health.sh --if-empty; then
+  echo "warning: the coffee health dataset is not loaded (see the error above)." >&2
+fi
