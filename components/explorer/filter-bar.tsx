@@ -284,7 +284,7 @@ function ChoiceFilter({
         {/* The height ends halfway through a row, which shows the list goes on. */}
         <DropdownMenuContent
           align="start"
-          className="max-h-[19.25rem] min-w-44"
+          className="max-h-[min(19.25rem,var(--radix-dropdown-menu-content-available-height))] min-w-44"
         >
           {items.map((item) => (
             <DropdownMenuCheckboxItem
@@ -479,10 +479,11 @@ function RangeFilter({
             onApply={(next) => {
               closePanel();
               // In the sideways row on a phone the button can sit half off
-              // screen, where its new value would go unseen.
+              // screen. It grows when its value arrives, so bring it to the
+              // start of the row, where the longer text has room.
               buttonRef.current?.scrollIntoView({
                 block: "nearest",
-                inline: "nearest",
+                inline: "start",
               });
               if (next.min !== range.min || next.max !== range.max) {
                 setRange(next);
@@ -531,12 +532,15 @@ function RangeFields({
 
   const min = boundFromInput(draft.min, step);
   const max = boundFromInput(draft.max, step);
-  const isUnusable = (text: string, bound: number | null) =>
-    text.trim() !== "" && bound === null;
+  const unusable = {
+    min: draft.min.trim() !== "" && min === null,
+    max: draft.max.trim() !== "" && max === null,
+  };
+  const inverted = min !== null && max !== null && min > max;
   const problem =
-    isUnusable(draft.min, min) || isUnusable(draft.max, max)
+    unusable.min || unusable.max
       ? t.rangeInvalid
-      : min !== null && max !== null && min > max
+      : inverted
         ? t.rangeInverted
         : null;
   const [lowest, highest] = bounds;
@@ -563,9 +567,12 @@ function RangeFields({
         autoComplete="off"
         autoFocus={side === "min"}
         value={draft[side]}
-        aria-invalid={problem !== null || undefined}
+        aria-invalid={unusable[side] || inverted || undefined}
         aria-describedby={hintId}
         onChange={(event) => setDraft({ ...draft, [side]: event.target.value })}
+        // Typing replaces a bound that is already set, where it would
+        // otherwise be appended to it ("7.5" plus "9" as "7.59").
+        onFocus={(event) => event.currentTarget.select()}
         // Show what Apply will use: "6.55" becomes "6.6", the URL's value.
         onBlur={() => {
           const bound = side === "min" ? min : max;
@@ -579,7 +586,7 @@ function RangeFields({
           event.preventDefault();
           apply();
         }}
-        className="h-8 bg-background tabular-nums md:text-[13px]"
+        className="h-8 bg-background tabular-nums aria-[invalid=true]:border-destructive md:text-[13px]"
       />
     </div>
   );
@@ -592,7 +599,11 @@ function RangeFields({
       </div>
       <div className="flex items-center justify-between gap-3">
         {problem !== null ? (
-          <p id={hintId} role="alert" className="text-xs text-destructive">
+          <p
+            id={hintId}
+            role="alert"
+            className="text-balance text-xs text-destructive"
+          >
             {problem}
           </p>
         ) : (

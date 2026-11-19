@@ -107,6 +107,12 @@ describe("boundFromInput", () => {
     expect(boundFromInput("30.4", 1)).toBe(30);
   });
 
+  it("accepts a number on the way to a decimal", () => {
+    expect(boundFromInput("2.", 0.1)).toBe(2);
+    expect(boundFromInput("2,", 0.1)).toBe(2);
+    expect(boundFromInput(".5", 0.1)).toBe(0.5);
+  });
+
   it("gives null for text that is not a usable bound", () => {
     for (const text of ["", " ", "abc", "-3", "-", ".", "3e", "1e5", "0x10"]) {
       expect(boundFromInput(text, 1)).toBeNull();

@@ -40,8 +40,9 @@ export function TableFooter({ count, page }: { count: number; page: number }) {
   };
 
   return (
-    <footer className="flex items-center justify-between gap-4 border-t bg-background px-4 py-2">
-      <p className="text-[13px] tabular-nums text-muted-foreground">
+    <footer className="flex items-center justify-end gap-4 border-t bg-background px-4 py-2 sm:justify-between">
+      {/* At millions of rows this line and the pager do not both fit a phone. */}
+      <p className="hidden whitespace-nowrap text-[13px] tabular-nums text-muted-foreground sm:block">
         {count > 0 && fill(t.rowsRange, { from: number(from), to: number(to) })}
       </p>
       <nav aria-label={t.pagination} className="flex items-center gap-1">
@@ -50,7 +51,7 @@ export function TableFooter({ count, page }: { count: number; page: number }) {
           t.previous,
           <ChevronLeft aria-hidden className="size-4" />,
         )}
-        <p className="px-1 text-[13px] tabular-nums text-muted-foreground md:hidden">
+        <p className="whitespace-nowrap px-1 text-[13px] tabular-nums text-muted-foreground md:hidden">
           {fill(t.pageOf, { page: number(page), last: number(last) })}
         </p>
         <ol className="hidden items-center gap-1 md:flex">

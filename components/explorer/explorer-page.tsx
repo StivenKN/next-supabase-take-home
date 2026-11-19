@@ -207,8 +207,8 @@ function ExplorerSkeleton({ label }: { label: string }) {
         </div>
       </div>
       <div className="skeleton-rows min-h-0 flex-1 bg-card" />
-      <div className="flex h-[49px] items-center justify-between border-t px-4">
-        <div className="h-3 w-24 rounded-full bg-muted" />
+      <div className="flex h-[49px] items-center justify-end border-t px-4 sm:justify-between">
+        <div className="hidden h-3 w-24 rounded-full bg-muted sm:block" />
         <div className="h-3 w-40 rounded-full bg-muted" />
       </div>
     </div>

@@ -12,6 +12,7 @@ export const FILTER_SECTION =
 export const FILTER_COUNT =
   "flex min-w-0 flex-wrap items-baseline gap-x-3 xl:tall:flex-col xl:tall:gap-y-1 xl:tall:py-1";
 
-// The padding in the sideways row keeps focus rings from being clipped.
+// The padding in the sideways row keeps focus rings from being clipped, and
+// the scroll padding keeps a filter scrolled into view off the screen's edge.
 export const FILTER_GRID =
-  "-mx-4 flex gap-2 overflow-x-auto px-4 py-0.5 [scrollbar-color:hsl(var(--input))_transparent] [scrollbar-width:thin] md:tall:mx-0 md:tall:grid md:tall:grid-cols-3 md:tall:overflow-visible md:tall:p-0 lg:tall:grid-cols-4 min-[1800px]:tall:grid-cols-6";
+  "-mx-4 flex scroll-px-4 gap-2 overflow-x-auto px-4 py-0.5 [scrollbar-color:hsl(var(--input))_transparent] [scrollbar-width:thin] md:tall:mx-0 md:tall:grid md:tall:grid-cols-3 md:tall:overflow-visible md:tall:p-0 lg:tall:grid-cols-4 min-[1800px]:tall:grid-cols-6";
