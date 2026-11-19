@@ -100,7 +100,7 @@ export function FilterBar({
           moves the table. The column counts leave room for the longest
           Spanish label and value. A smaller window gets one row that scrolls
           sideways, which leaves its height to the table. */}
-      <div className={FILTER_GRID}>
+      <div data-filter-row className={FILTER_GRID}>
         {CHOICE_KEYS.map((key) => (
           <ChoiceFilter
             key={key}
@@ -199,7 +199,7 @@ const FilterButton = forwardRef<
     >
       <span className="min-w-0 truncate">{label}</span>
       {value !== null && (
-        <span className="max-w-40 shrink-0 truncate font-semibold tabular-nums md:max-w-[70%]">
+        <span className="max-w-40 shrink-0 truncate font-semibold tabular-nums md:tall:max-w-[70%]">
           {value}
         </span>
       )}
@@ -284,6 +284,8 @@ function ChoiceFilter({
         {/* The height ends halfway through a row, which shows the list goes on. */}
         <DropdownMenuContent
           align="start"
+          // Keeps the menu off the screen edge when it fills a short window.
+          collisionPadding={8}
           className="max-h-[min(19.25rem,var(--radix-dropdown-menu-content-available-height))] min-w-44"
         >
           {items.map((item) => (
@@ -355,6 +357,25 @@ function FlagFilter({ filter }: { filter: FlagKey }) {
 }
 
 const PANEL_WIDTH = 248;
+
+// A filter button gains about this many pixels when it is set: its value and
+// its clear button.
+const SET_FILTER_GROWTH = 140;
+
+/**
+ * In the sideways row a filter button can sit partly off screen, or so close
+ * to the edge that its value will not fit once it is set. Then it moves to the
+ * start of the row. A button with room stays put, so the row does not jump.
+ */
+function showWithRoomToGrow(button: HTMLElement | null) {
+  const row = button?.closest("[data-filter-row]");
+  if (!button || !row) return;
+  const chip = button.getBoundingClientRect();
+  const view = row.getBoundingClientRect();
+  if (chip.left < view.left || chip.right + SET_FILTER_GROWTH > view.right) {
+    button.scrollIntoView({ block: "nearest", inline: "start" });
+  }
+}
 
 function RangeFilter({
   filter,
@@ -478,13 +499,7 @@ function RangeFilter({
             step={RANGE_STEPS[filter]}
             onApply={(next) => {
               closePanel();
-              // In the sideways row on a phone the button can sit half off
-              // screen. It grows when its value arrives, so bring it to the
-              // start of the row, where the longer text has room.
-              buttonRef.current?.scrollIntoView({
-                block: "nearest",
-                inline: "start",
-              });
+              showWithRoomToGrow(buttonRef.current);
               if (next.min !== range.min || next.max !== range.max) {
                 setRange(next);
               }
@@ -532,9 +547,12 @@ function RangeFields({
 
   const min = boundFromInput(draft.min, step);
   const max = boundFromInput(draft.max, step);
+  // A lone decimal mark is the start of ".5", not a mistake yet.
+  const isUnusable = (text: string, bound: number | null) =>
+    bound === null && !/^[.,]?$/.test(text.trim());
   const unusable = {
-    min: draft.min.trim() !== "" && min === null,
-    max: draft.max.trim() !== "" && max === null,
+    min: isUnusable(draft.min, min),
+    max: isUnusable(draft.max, max),
   };
   const inverted = min !== null && max !== null && min > max;
   const problem =
