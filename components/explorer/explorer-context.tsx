@@ -29,12 +29,8 @@ type ExplorerContextValue = {
    */
   renderedState: ExplorerState;
   isPending: boolean;
-  /**
-   * Moves to another view by changing the URL. `replace` swaps the current
-   * history entry instead of adding one. Typing in a range uses it so the
-   * back button does not step through every keystroke.
-   */
-  navigate: (next: ExplorerState, options?: { replace?: boolean }) => void;
+  /** Moves to another view by pushing its URL. */
+  navigate: (next: ExplorerState) => void;
   /** The element that scrolls the table. navigate() returns it to the top. */
   scroller: React.RefObject<HTMLDivElement | null>;
 };
@@ -60,13 +56,12 @@ export function ExplorerProvider({
   const scroller = useRef<HTMLDivElement>(null);
 
   const navigate = useCallback<ExplorerContextValue["navigate"]>(
-    (next, options) => {
+    (next) => {
       const href = hrefForState(pathname, next);
       scroller.current?.scrollTo({ top: 0 });
       startTransition(() => {
         setOptimisticState(next);
-        if (options?.replace) router.replace(href, { scroll: false });
-        else router.push(href, { scroll: false });
+        router.push(href, { scroll: false });
       });
     },
     [pathname, router, setOptimisticState],

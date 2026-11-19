@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 import tailwindcssAnimate from "tailwindcss-animate";
 
 export default {
@@ -11,9 +12,6 @@ export default {
   ],
   theme: {
     extend: {
-      screens: {
-        tall: { raw: "(min-height: 640px)" },
-      },
       fontFamily: {
         sans: ["var(--font-archivo)", "system-ui", "sans-serif"],
       },
@@ -71,5 +69,12 @@ export default {
       },
     },
   },
-  plugins: [tailwindcssAnimate],
+  plugins: [
+    tailwindcssAnimate,
+    // A variant, not an entry in `screens`: a raw screen there makes Tailwind
+    // drop every `min-[...]` and `max-[...]` class.
+    plugin(({ addVariant }) =>
+      addVariant("tall", "@media (min-height: 640px)"),
+    ),
+  ],
 } satisfies Config;

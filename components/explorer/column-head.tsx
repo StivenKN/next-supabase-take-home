@@ -60,12 +60,17 @@ export function ColumnHead({
           state={{ ...state, sort: { column: sortKey, ascending }, page: 1 }}
           title={fill(sortTitle, { label: sortLabel })}
           // Chrome does not scroll a focused link out from under the pinned
-          // ID column or in from beyond the edge of the scroller.
-          onFocus={(event) =>
-            event.currentTarget
-              .closest("th")
-              ?.scrollIntoView({ block: "nearest", inline: "nearest" })
-          }
+          // ID column or in from beyond the edge of the scroller. Keyboard
+          // focus only: scrolling on a mouse press would move the link out
+          // from under the pointer before the click lands.
+          onFocus={(event) => {
+            const link = event.currentTarget;
+            if (link.matches(":focus-visible")) {
+              link
+                .closest("th")
+                ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+            }
+          }}
           className={cn(
             "-mx-1.5 inline-flex h-7 items-center gap-1 rounded-sm px-1.5 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
             align === "right" && "flex-row-reverse",

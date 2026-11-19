@@ -30,6 +30,8 @@ export type Dictionary = {
   atLeast: string;
   atMost: string;
   rangeInverted: string;
+  rangeInvalid: string;
+  apply: string;
   clearFilter: string;
   clearOne: string;
   clearMany: string;
@@ -113,11 +115,13 @@ const en: Dictionary = {
   between: "{min} to {max}",
   atLeast: "{min} or more",
   atMost: "up to {max}",
-  rangeInverted: "The minimum is above the maximum, so nothing can match.",
+  rangeInverted: "The minimum is above the maximum.",
+  rangeInvalid: "Use numbers of zero or more.",
+  apply: "Apply",
   clearFilter: "Clear {label} filter",
   clearOne: "Clear 1 filter",
   clearMany: "Clear {count} filters",
-  rangeInData: "The data goes from {min} to {max}.",
+  rangeInData: "Data: {min} to {max}",
   filtersLabel: "Filters",
   matchOne: "{count} person",
   matchMany: "{count} people",
@@ -184,7 +188,7 @@ const es: Dictionary = {
     heart_rate: "Pulso",
     bmi: "IMC",
     physical_activity_hours: "Actividad",
-    health_issues: "Salud",
+    health_issues: "Problemas",
     smoking: "Fuma",
     alcohol_consumption: "Bebe alcohol",
   },
@@ -239,11 +243,13 @@ const es: Dictionary = {
   between: "{min} a {max}",
   atLeast: "{min} o más",
   atMost: "hasta {max}",
-  rangeInverted: "El mínimo supera al máximo, así que nada puede coincidir.",
+  rangeInverted: "El mínimo supera al máximo.",
+  rangeInvalid: "Usa números de cero en adelante.",
+  apply: "Aplicar",
   clearFilter: "Quitar el filtro de {label}",
   clearOne: "Quitar 1 filtro",
   clearMany: "Quitar {count} filtros",
-  rangeInData: "Los datos van de {min} a {max}.",
+  rangeInData: "Datos: {min} a {max}",
   filtersLabel: "Filtros",
   matchOne: "{count} persona",
   matchMany: "{count} personas",

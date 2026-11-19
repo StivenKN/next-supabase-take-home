@@ -222,11 +222,11 @@ I did not use `seed.sql`. The database container does not mount the repository, 
 
 The URL holds all state, for example `/?country=Brazil,Germany&age=30..50&smoking=yes&sort=-caffeine_mg&page=2`. A view is a link you can share, the back button undoes a filter, and the server renders the page with no client-side data fetching. Parsing lives in [lib/coffee-health/search-params.ts](lib/coffee-health/search-params.ts) and has unit tests. It drops anything it does not understand.
 
-| Filter                    | Columns                                                           | Behaviour                                                                                                             |
-| ------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Pick any number of values | country, gender, occupation, sleep quality, stress, health issues | Rows matching any ticked value (`in`).                                                                                |
-| Minimum and maximum       | age, coffee, sleep, BMI                                           | Inclusive. Either side can be empty. Applied when the panel closes, so a half-typed number does not reload the table. |
-| Yes or no                 | smokes, drinks alcohol                                            | Exact match.                                                                                                          |
+| Filter                    | Columns                                                           | Behaviour                                                                                                                      |
+| ------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Pick any number of values | country, gender, occupation, sleep quality, stress, health issues | Rows matching any ticked value (`in`).                                                                                         |
+| Minimum and maximum       | age, coffee, sleep, BMI                                           | Inclusive. Either side can be empty. Applied with the Apply button or Enter, so a half-typed number does not reload the table. |
+| Yes or no                 | smokes, drinks alcohol                                            | Exact match.                                                                                                                   |
 
 Filters combine with `and`. Changing a filter returns to page 1.
 
@@ -243,7 +243,7 @@ Only columns with an index are sortable: id, age, country, caffeine, coffee, sle
 
 ### Scale
 
-I copied the dataset 200 times into a 2 million row table with the same indexes and ran each query shape the page can produce. [scripts/bench-scale.sql](scripts/bench-scale.sql) reproduces this. The times below are single runs of `EXPLAIN ANALYZE` on Postgres 17 in Docker on a laptop, so read them as orders of magnitude.
+I copied the dataset 200 times into a 2 million row table with the same indexes and ran each query shape the page can produce. [scripts/bench-scale.sql](scripts/bench-scale.sql) reproduces this. Separately, the `scale/million-rows` eval in [evals/exercise](evals/exercise/) grows the table to 1,000,000 rows and requests deep pages through the running app. CI fails if any response takes 2 seconds, and on my machine the slowest took 175 ms. The times below are single runs of `EXPLAIN ANALYZE` on Postgres 17 in Docker on a laptop, so read them as orders of magnitude.
 
 | Query at 2 million rows                                     | Time         |
 | ----------------------------------------------------------- | ------------ |
@@ -509,11 +509,11 @@ No usé `seed.sql`. El contenedor de la base de datos no monta el repositorio, a
 
 La URL guarda todo el estado, por ejemplo `/es?country=Brazil,Germany&age=30..50&smoking=yes&sort=-caffeine_mg&page=2`. Una vista es un enlace que se puede compartir, el botón Atrás deshace un filtro y el servidor renderiza la página sin peticiones de datos desde el cliente. El análisis de la URL vive en [lib/coffee-health/search-params.ts](lib/coffee-health/search-params.ts) y tiene pruebas unitarias. Descarta todo lo que no entiende.
 
-| Filtro                             | Columnas                                                               | Comportamiento                                                                                                                                     |
-| ---------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Elegir cualquier número de valores | país, género, ocupación, calidad del sueño, estrés, problemas de salud | Filas que coinciden con cualquiera de los valores marcados (`in`).                                                                                 |
-| Mínimo y máximo                    | edad, café, sueño, IMC                                                 | Inclusivo. Cualquiera de los dos lados puede quedar vacío. Se aplica al cerrar el panel, para que un número a medio escribir no recargue la tabla. |
-| Sí o no                            | fuma, bebe alcohol                                                     | Coincidencia exacta.                                                                                                                               |
+| Filtro                             | Columnas                                                               | Comportamiento                                                                                                                                                   |
+| ---------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Elegir cualquier número de valores | país, género, ocupación, calidad del sueño, estrés, problemas de salud | Filas que coinciden con cualquiera de los valores marcados (`in`).                                                                                               |
+| Mínimo y máximo                    | edad, café, sueño, IMC                                                 | Inclusivo. Cualquiera de los dos lados puede quedar vacío. Se aplica con el botón Aplicar o con Enter, para que un número a medio escribir no recargue la tabla. |
+| Sí o no                            | fuma, bebe alcohol                                                     | Coincidencia exacta.                                                                                                                                             |
 
 Los filtros se combinan con `and`. Cambiar un filtro vuelve a la página 1.
 
@@ -530,7 +530,7 @@ Solo se puede ordenar por columnas con índice: id, edad, país, cafeína, café
 
 ### Escala
 
-Copié el conjunto de datos 200 veces en una tabla de 2 millones de filas con los mismos índices y ejecuté cada forma de consulta que la página puede producir. [scripts/bench-scale.sql](scripts/bench-scale.sql) lo reproduce. Los tiempos de abajo son ejecuciones únicas de `EXPLAIN ANALYZE` en Postgres 17 dentro de Docker en un portátil, así que sirven como órdenes de magnitud.
+Copié el conjunto de datos 200 veces en una tabla de 2 millones de filas con los mismos índices y ejecuté cada forma de consulta que la página puede producir. [scripts/bench-scale.sql](scripts/bench-scale.sql) lo reproduce. Aparte, el eval `scale/million-rows` de [evals/exercise](evals/exercise/) hace crecer la tabla a 1.000.000 de filas y pide páginas profundas a la aplicación en ejecución. La CI falla si alguna respuesta tarda 2 segundos, y en mi máquina la más lenta tardó 175 ms. Los tiempos de abajo son ejecuciones únicas de `EXPLAIN ANALYZE` en Postgres 17 dentro de Docker en un portátil, así que sirven como órdenes de magnitud.
 
 | Consulta con 2 millones de filas                                                     | Tiempo      |
 | ------------------------------------------------------------------------------------ | ----------- |

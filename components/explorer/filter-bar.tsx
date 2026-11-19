@@ -10,6 +10,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -130,15 +131,12 @@ function FilterFrame({
   active,
   clearLabel,
   onClear,
-  onClearPress,
   onFocusLeave,
   children,
 }: {
   active: boolean;
   clearLabel: string;
   onClear: () => void;
-  /** Runs when the clear button is pressed, before its click. */
-  onClearPress?: () => void;
   /** Runs when keyboard focus moves from inside the frame to outside it. */
   onFocusLeave?: () => void;
   children: React.ReactNode;
@@ -164,7 +162,6 @@ function FilterFrame({
           type="button"
           aria-label={clearLabel}
           title={clearLabel}
-          onPointerDown={onClearPress}
           onClick={(event) => {
             // This button is about to disappear. Hand focus to the filter's
             // own button first so the keyboard stays where it was.
@@ -188,10 +185,7 @@ const FilterButton = forwardRef<
     /** Everything the filter is set to, when `value` shortens it. */
     fullValue?: string;
   }
->(function FilterButton(
-  { label, value, fullValue = value ?? undefined, className, ...props },
-  ref,
-) {
+>(function FilterButton({ label, value, fullValue, className, ...props }, ref) {
   return (
     <button
       ref={ref}
@@ -385,20 +379,6 @@ function RangeFilter({
       withFilters(state, { ranges: { ...state.ranges, [filter]: next } }),
     );
 
-  // What the fields hold while the panel is open, or null when that is not a
-  // range to apply. It is applied when the panel closes: on Enter, Escape, a
-  // click elsewhere, or focus leaving. Applying on every keystroke would
-  // reload the table for each half-typed number.
-  const typed = useRef<Range | null>(null);
-
-  const applyTyped = () => {
-    const next = typed.current;
-    typed.current = null;
-    if (next && (next.min !== range.min || next.max !== range.max)) {
-      setRange(next);
-    }
-  };
-
   // The panel is a native popover: the browser puts it above everything else,
   // closes it on Escape or an outside click, and returns focus to the button.
   // Placing it under its button is the one thing left to do by hand.
@@ -446,22 +426,19 @@ function RangeFilter({
         ? fill(t.atLeast, { min: format(range.min) })
         : fill(t.atMost, { max: format(range.max!) });
 
+  const closePanel = () => {
+    if (open) panelRef.current?.hidePopover();
+  };
+
   return (
     <FilterFrame
       active={active}
       clearLabel={fill(t.clearFilter, { label })}
-      // Pressing the clear button also closes the panel. Dropping the typed
-      // range first keeps that close from applying it.
-      onClearPress={() => {
-        typed.current = null;
-      }}
       onClear={() => {
-        typed.current = null;
+        closePanel();
         setRange({ min: null, max: null });
       }}
-      onFocusLeave={() => {
-        if (open) panelRef.current?.hidePopover();
-      }}
+      onFocusLeave={closePanel}
     >
       <FilterButton
         ref={buttonRef}
@@ -478,12 +455,10 @@ function RangeFilter({
         }}
         onToggle={(event) => {
           if (event.newState === "open") {
-            typed.current = null;
             watchForMove();
             setOpen(true);
           } else {
             closeOnMove.current?.abort();
-            applyTyped();
             setOpen(false);
           }
         }}
@@ -499,10 +474,12 @@ function RangeFilter({
             range={range}
             bounds={bounds}
             step={RANGE_STEPS[filter]}
-            onEdit={(next) => {
-              typed.current = next;
+            onApply={(next) => {
+              closePanel();
+              if (next.min !== range.min || next.max !== range.max) {
+                setRange(next);
+              }
             }}
-            onDone={() => panelRef.current?.hidePopover()}
           />
         )}
       </div>
@@ -510,21 +487,23 @@ function RangeFilter({
   );
 }
 
+/**
+ * The two fields and their Apply button. The range applies on Apply or Enter
+ * only. Escape, a click elsewhere, or focus leaving closes the panel and drops
+ * what was typed, so no other click can race with a half-typed number.
+ */
 function RangeFields({
   label,
   range,
   bounds,
   step,
-  onEdit,
-  onDone,
+  onApply,
 }: {
   label: string;
   range: Range;
   bounds: [number | null, number | null];
   step: number;
-  /** Null when the fields do not hold a range that can be applied. */
-  onEdit: (range: Range | null) => void;
-  onDone: () => void;
+  onApply: (range: Range) => void;
 }) {
   const { t, locale } = useExplorer();
   const minId = useId();
@@ -537,9 +516,20 @@ function RangeFields({
 
   const min = boundFromInput(draft.min, step);
   const max = boundFromInput(draft.max, step);
-  const inverted = min !== null && max !== null && min > max;
+  const isUnusable = (text: string, bound: number | null) =>
+    text.trim() !== "" && bound === null;
+  const problem =
+    isUnusable(draft.min, min) || isUnusable(draft.max, max)
+      ? t.rangeInvalid
+      : min !== null && max !== null && min > max
+        ? t.rangeInverted
+        : null;
   const [lowest, highest] = bounds;
   const digits = step === 1 ? 0 : 1;
+
+  const apply = () => {
+    if (problem === null) onApply({ min, max });
+  };
 
   const field = (side: "min" | "max", id: string) => (
     <div className="grid gap-1.5">
@@ -557,30 +547,21 @@ function RangeFields({
         step={step}
         autoFocus={side === "min"}
         value={draft[side]}
-        aria-invalid={inverted || undefined}
-        aria-describedby={inverted ? hintId : undefined}
-        onChange={(event) => {
-          const next = { ...draft, [side]: event.target.value };
-          setDraft(next);
-          const range = {
-            min: boundFromInput(next.min, step),
-            max: boundFromInput(next.max, step),
-          };
-          const isInverted =
-            range.min !== null && range.max !== null && range.min > range.max;
-          onEdit(isInverted ? null : range);
-        }}
-        // Show what was applied: "6.55" becomes "6.6", the value in the URL.
+        aria-invalid={problem !== null || undefined}
+        aria-describedby={hintId}
+        onChange={(event) => setDraft({ ...draft, [side]: event.target.value })}
+        // Show what Apply will use: "6.55" becomes "6.6", the URL's value.
         onBlur={() => {
-          const applied = boundFromInput(draft[side], step);
-          setDraft({ ...draft, [side]: applied?.toString() ?? "" });
+          const bound = side === "min" ? min : max;
+          if (bound !== null) setDraft({ ...draft, [side]: bound.toString() });
         }}
         onKeyDown={(event) => {
           if (event.key !== "Enter") return;
-          // Closing hands focus back to the filter button. Without this the
-          // same key press would reach that button and open the panel again.
+          // Applying closes the panel and hands focus back to the filter
+          // button. Without this the same key press would reach that button
+          // and open the panel again.
           event.preventDefault();
-          onDone();
+          apply();
         }}
         className="h-8 bg-background tabular-nums md:text-[13px]"
       />
@@ -593,21 +574,31 @@ function RangeFields({
         {field("min", minId)}
         {field("max", maxId)}
       </div>
-      {inverted ? (
-        <p id={hintId} role="alert" className="text-xs text-destructive">
-          {t.rangeInverted}
-        </p>
-      ) : (
-        lowest !== null &&
-        highest !== null && (
-          <p className="text-xs tabular-nums text-muted-foreground">
-            {fill(t.rangeInData, {
-              min: formatNumber(locale, lowest, digits),
-              max: formatNumber(locale, highest, digits),
-            })}
+      <div className="flex items-center justify-between gap-3">
+        {problem !== null ? (
+          <p id={hintId} role="alert" className="text-xs text-destructive">
+            {problem}
           </p>
-        )
-      )}
+        ) : (
+          <p id={hintId} className="text-xs tabular-nums text-muted-foreground">
+            {lowest !== null &&
+              highest !== null &&
+              fill(t.rangeInData, {
+                min: formatNumber(locale, lowest, digits),
+                max: formatNumber(locale, highest, digits),
+              })}
+          </p>
+        )}
+        <Button
+          type="button"
+          size="sm"
+          disabled={problem !== null}
+          onClick={apply}
+          className="shrink-0 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-popover"
+        >
+          {t.apply}
+        </Button>
+      </div>
     </div>
   );
 }
