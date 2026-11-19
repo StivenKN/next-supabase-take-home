@@ -241,6 +241,8 @@ The country list, the total row count, and the min and max of each range come fr
 
 Only columns with an index are sortable: id, age, country, caffeine, coffee, sleep, heart rate, and BMI. Every sort adds `id` as a tiebreaker. Without it, rows with the same age could swap places between requests and appear on two pages or on none.
 
+`pnpm verify:pagination` checks the paging against the CSV. It follows the pager's links through every page of every sort, unfiltered, and of 100 random filter combinations, and fails if a matching row is shown twice, shown on no page, or shown out of order. CI runs it on every pull request. [.agents/skills/verify-coffee-health-pagination/SKILL.md](.agents/skills/verify-coffee-health-pagination/SKILL.md) says what it covers and what it does not.
+
 ### Scale
 
 I copied the dataset 200 times into a 2 million row table with the same indexes and ran each query shape the page can produce. [scripts/bench-scale.sql](scripts/bench-scale.sql) reproduces this. Separately, the `scale/million-rows` eval in [evals/exercise](evals/exercise/) grows the table to 1,000,000 rows and requests deep pages through the running app. CI fails if any response takes more than 2 seconds, and on my machine the slowest took 175 ms. The times below are single runs of `EXPLAIN ANALYZE` on Postgres 17 in Docker on a laptop, so read them as orders of magnitude.
@@ -527,6 +529,8 @@ Las dos decisiones son las simples, y las dos tienen un costo a escala que la si
 La lista de países, el total de filas y el mínimo y máximo de cada rango salen de una función SQL, `coffee_health_summary()`. Su resultado no depende de los filtros, así que Next.js lo guarda en caché con `"use cache"` y lo actualiza en segundo plano cuando tiene más de un minuto.
 
 Solo se puede ordenar por columnas con índice: id, edad, país, cafeína, café, sueño, pulso e IMC. Cada orden agrega `id` como desempate. Sin él, las filas con la misma edad podrían cambiar de lugar entre peticiones y salir en dos páginas o en ninguna.
+
+`pnpm verify:pagination` comprueba la paginación contra el CSV. Sigue los enlaces del paginador por todas las páginas de cada orden, sin filtros, y de 100 combinaciones de filtros al azar, y falla si una fila que coincide sale dos veces, no sale en ninguna página o sale fuera de orden. CI lo ejecuta en cada pull request. [.agents/skills/verify-coffee-health-pagination/SKILL.md](.agents/skills/verify-coffee-health-pagination/SKILL.md) explica qué cubre y qué no.
 
 ### Escala
 

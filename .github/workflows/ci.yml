@@ -87,6 +87,12 @@ jobs:
         # Fails unless the table's row count equals the CSV's.
         run: pnpm db:load
 
+      - name: Verify pagination
+        # Pages through getPage() for every sort and 100 random filter views
+        # and compares with the CSV. Before the evals, whose --scale case
+        # adds rows. See .agents/skills/verify-coffee-health-pagination/.
+        run: pnpm verify:pagination
+
       - run: pnpm build
 
       - name: Smoke test the running app
