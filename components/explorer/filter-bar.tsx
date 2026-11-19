@@ -367,12 +367,13 @@ const SET_FILTER_GROWTH = 140;
  * to the edge that its value will not fit once it is set. Then it moves to the
  * start of the row. A button with room stays put, so the row does not jump.
  */
-function showWithRoomToGrow(button: HTMLElement | null) {
+function showWithRoomToGrow(button: HTMLElement | null, alreadySet: boolean) {
   const row = button?.closest("[data-filter-row]");
   if (!button || !row) return;
   const chip = button.getBoundingClientRect();
   const view = row.getBoundingClientRect();
-  if (chip.left < view.left || chip.right + SET_FILTER_GROWTH > view.right) {
+  const growth = alreadySet ? 0 : SET_FILTER_GROWTH;
+  if (chip.left < view.left || chip.right + growth > view.right) {
     button.scrollIntoView({ block: "nearest", inline: "start" });
   }
 }
@@ -499,10 +500,11 @@ function RangeFilter({
             step={RANGE_STEPS[filter]}
             onApply={(next) => {
               closePanel();
-              showWithRoomToGrow(buttonRef.current);
-              if (next.min !== range.min || next.max !== range.max) {
-                setRange(next);
-              }
+              if (next.min === range.min && next.max === range.max) return;
+              // A filter that is already set has its clear button and only
+              // changes its numbers, so it needs no extra room.
+              showWithRoomToGrow(buttonRef.current, active);
+              setRange(next);
             }}
           />
         )}
