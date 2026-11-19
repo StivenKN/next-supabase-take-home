@@ -38,7 +38,9 @@ jobs:
   app:
     # Boots the real stack the way the README does: local Supabase in Docker
     # (migrations + seed.sql), `pnpm setup:env`, a production build, then
-    # requests the home page from the running server.
+    # requests the home page from the running server and runs the exercise
+    # evals against it (evals/README.md).
+    # The name is a required check in the "main: CI must pass" ruleset; keep it.
     name: Supabase + build + smoke test
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -81,6 +83,11 @@ jobs:
       - name: Write .env.local
         run: pnpm setup:env
 
+      - name: Load the dataset
+        # A no-op until the app adds a `db:load` script. Data loaded by
+        # seed.sql is already there.
+        run: pnpm run --if-present db:load
+
       - run: pnpm build
 
       - name: Smoke test the running app
@@ -101,6 +108,15 @@ jobs:
             echo "::error::GET ${SMOKE_PATH} is missing the expected text: ${SMOKE_EXPECT}"
             exit 1
           fi
+
+      - name: Exercise evals
+        # Uses the server the smoke test started. Fails when a case differs
+        # from the committed baseline in either direction.
+        run: pnpm evals:exercise --out evals/runs/ci --scale --baseline evals/exercise/baseline.json
+
+      - name: Eval summary
+        if: always()
+        run: cat evals/runs/ci/summary.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
 
       - name: Server log
         if: always()

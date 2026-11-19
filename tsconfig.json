@@ -19,6 +19,8 @@
     "allowJs": false,
     "skipLibCheck": true,
     "noEmit": true,
+    // Lets the evals import `./x.ts`, which Node needs to run them directly.
+    "allowImportingTsExtensions": true,
     "incremental": true,
 
     // Modules: settings Next.js requires, plus `verbatimModuleSyntax`, which
